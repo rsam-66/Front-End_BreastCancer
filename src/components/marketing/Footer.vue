@@ -3,42 +3,42 @@ const currentYear = new Date().getFullYear();
 </script>
 
 <template>
-  <footer class="site-footer">
-    <div class="container">
-      <div class="footer-content">
+  <footer class="bg-[#f8f9fa] pt-12 pb-6 px-8 text-[#5d6d7e] border-t border-[#eef2f6] mt-auto">
+    <div class="max-w-7xl mx-auto">
+      <div class="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-12 mb-8">
         <div class="brand-column">
           <div class="logo">
-            <span class="logo-text">Lumira AI</span>
+            <span class="font-bold text-2xl text-[#2c3e50] block mb-4">Lumira AI</span>
           </div>
-          <p class="mission-text">
+          <p class="leading-relaxed max-w-[300px]">
             Empowering doctors with AI-driven precision for early breast cancer detection.
           </p>
         </div>
 
         <div class="link-column">
-          <h4>Product</h4>
-          <ul>
-            <li><a href="#features">Key Features</a></li>
-            <li><a href="#how-it-works">How It Works</a></li>
-            <li><a href="#pricing">Pricing</a></li>
+          <h4 class="text-[#2c3e50] mb-5 text-lg font-bold">Product</h4>
+          <ul class="list-none p-0">
+            <li class="mb-3"><a href="#features" class="no-underline text-[#5d6d7e] transition-colors hover:text-[#0099ff]">Key Features</a></li>
+            <li class="mb-3"><a href="#how-it-works" class="no-underline text-[#5d6d7e] transition-colors hover:text-[#0099ff]">How It Works</a></li>
+            <li class="mb-3"><a href="#pricing" class="no-underline text-[#5d6d7e] transition-colors hover:text-[#0099ff]">Pricing</a></li>
           </ul>
         </div>
 
         <div class="link-column">
-          <h4>Support</h4>
-          <ul>
-            <li><a href="#">Help Center</a></li>
-            <li><a href="#">Contact Us</a></li>
-            <li><a href="#">Privacy Policy</a></li>
+          <h4 class="text-[#2c3e50] mb-5 text-lg font-bold">Support</h4>
+          <ul class="list-none p-0">
+            <li class="mb-3"><a href="#" class="no-underline text-[#5d6d7e] transition-colors hover:text-[#0099ff]">Help Center</a></li>
+            <li class="mb-3"><a href="#" class="no-underline text-[#5d6d7e] transition-colors hover:text-[#0099ff]">Contact Us</a></li>
+            <li class="mb-3"><a href="#" class="no-underline text-[#5d6d7e] transition-colors hover:text-[#0099ff]">Privacy Policy</a></li>
           </ul>
         </div>
       </div>
 
-      <hr class="divider" />
+      <hr class="border-0 border-t border-[#e0e0e0] my-4" />
 
-      <div class="footer-bottom">
+      <div class="flex justify-between items-center text-sm pt-4">
         <p>&copy; {{ currentYear }} Lumira AI. All rights reserved.</p>
-        <div class="socials">
+        <div class="flex gap-6 font-medium cursor-pointer">
           <span>Instagram</span>
           <span>Twitter</span>
           <span>LinkedIn</span>
@@ -47,84 +47,3 @@ const currentYear = new Date().getFullYear();
     </div>
   </footer>
 </template>
-
-<style scoped>
-.site-footer {
-  background-color: #f8f9fa; /* Very light grey */
-  padding: 3rem 2rem 1.5rem;
-  color: #5d6d7e;
-  border-top: 1px solid #eef2f6;
-  margin-top: auto; /* Ensures it stays at bottom if content is short */
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.footer-content {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  gap: 3rem;
-  margin-bottom: 2rem;
-}
-
-.logo-text {
-  font-weight: bold;
-  font-size: 1.5rem;
-  color: #2c3e50;
-  display: block;
-  margin-bottom: 1rem;
-}
-
-.mission-text {
-  line-height: 1.6;
-  max-width: 300px;
-}
-
-h4 {
-  color: #2c3e50;
-  margin-bottom: 1.2rem;
-  font-size: 1.1rem;
-}
-
-ul {
-  list-style: none;
-  padding: 0;
-}
-
-li {
-  margin-bottom: 0.8rem;
-}
-
-a {
-  text-decoration: none;
-  color: #5d6d7e;
-  transition: color 0.2s;
-}
-
-a:hover {
-  color: #0099ff; /* Lumira Blue */
-}
-
-.divider {
-  border: 0;
-  border-top: 1px solid #e0e0e0;
-  margin: 1rem 0;
-}
-
-.footer-bottom {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.9rem;
-  padding-top: 1rem;
-}
-
-.socials {
-  display: flex;
-  gap: 1.5rem;
-  font-weight: 500;
-  cursor: pointer;
-}
-</style>
