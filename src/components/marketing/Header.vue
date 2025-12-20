@@ -3,74 +3,25 @@
 </script>
 
 <template>
-  <nav class="navbar">
-    <div class="container">
-      <div class="logo">
+  <nav class="bg-white shadow-sm py-6 px-8">
+    <div class="max-w-7xl mx-auto flex justify-between items-center">
+      <div class="flex items-center gap-2.5 font-bold text-xl text-gray-800">
         <!-- <img src="@/assets/lumira-logo.png" alt="Lumira AI" class="logo-img" /> -->
-        <span class="logo-text">Lumira AI</span>
+        <span>Lumira AI</span>
       </div>
 
-      <ul class="nav-links">
-        <li><a href="#features">Key Features</a></li>
-        <li><a href="#how-it-works">How It Works</a></li>
-        <li><a href="#why-us">Why Choose Us?</a></li>
+      <ul class="flex gap-8 list-none m-0 p-0">
+        <li><a href="#features" class="text-gray-500 font-medium hover:text-[#0099ff] transition-colors">Key Features</a></li>
+        <li><a href="#how-it-works" class="text-gray-500 font-medium hover:text-[#0099ff] transition-colors">How It Works</a></li>
+        <li><a href="#why-us" class="text-gray-500 font-medium hover:text-[#0099ff] transition-colors">Why Choose Us?</a></li>
       </ul>
 
-      <router-link to="#" class="btn-login">
+      <button 
+        @click="$emit('open-login')"
+        class="bg-[#0099ff] text-white px-6 py-2.5 rounded-full font-bold hover:bg-[#007acc] transition-colors cursor-pointer"
+      >
         Login
-      </router-link>
+      </button>
     </div>
   </nav>
 </template>
-
-<style scoped>
-/* Simple styling to match your screenshot */
-.navbar {
-  padding: 1.5rem 2rem;
-  background: white;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: bold;
-  font-size: 1.2rem;
-  color: #333;
-}
-
-.nav-links {
-  display: flex;
-  gap: 30px;
-  list-style: none;
-}
-
-.nav-links a {
-  text-decoration: none;
-  color: #666;
-  font-weight: 500;
-}
-
-.btn-login {
-  background-color: #0099ff; /* The blue from your design */
-  color: white;
-  padding: 0.6rem 1.5rem;
-  border-radius: 25px;
-  text-decoration: none;
-  font-weight: bold;
-  transition: background 0.3s;
-}
-
-.btn-login:hover {
-  background-color: #007acc;
-}
-</style>
