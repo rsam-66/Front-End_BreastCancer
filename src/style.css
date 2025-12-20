@@ -2,9 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body {
-    @apply m-0 p-0 font-sans bg-gray-50 text-gray-900;
-    /* font-family: 'Segoe UI', ... is handled by font-sans default or extended in config, but default is fine for now */
-  }
+/* --- SMOOTH SCROLLING FIX --- */
+html {
+  /* 1. Makes the scroll animate instead of snap */
+  scroll-behavior: smooth;
+
+  /* 2. Offsets the scroll destination so the title isn't hidden behind your header */
+  /* 80px is roughly the height of your header */
+  scroll-padding-top: 100px;
+}
+
+body {
+  background-color: #f5f7fa;
 }
