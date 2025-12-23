@@ -51,7 +51,7 @@ const togglePassword = () => {
       </button>
 
       <h1 class="text-2xl font-bold text-gray-800 text-center mb-8">Login</h1>
-
+      
       <form @submit.prevent="handleLogin" class="space-y-6">
         <div class="space-y-2">
           <label class="text-gray-600 font-medium ml-1">Email</label>
