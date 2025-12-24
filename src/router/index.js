@@ -1,97 +1,92 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-// Layouts
+// =========================================
+// 1. LAYOUTS
+// =========================================
 import PublicLayout from '@/layouts/PublicLayout.vue'
-
-// Models
 import AdminLayout from '@/layouts/AdminLayout.vue'
+import DoctorLayout from '@/layouts/DoctorLayout.vue'
+import AuthLayout from '@/layouts/AuthLayout.vue'
 
-// Views (Admin)
+// =========================================
+// 2. VIEWS & COMPONENTS
+// =========================================
+import HomeView from '@/views/public/HomeView.vue'
+// We reuse the Modal as the Page
+import LoginModal from '@/components/auth/LoginModal.vue' 
+
 import DashboardHome from '@/views/admin/page/DashboardHome.vue'
 import DashboardDoctor from '@/views/admin/page/DashboardDoctor.vue'
 import DashboardPatient from '@/views/admin/page/DashboardPatient.vue'
 
-// Views (Public)
-import HomeView from '@/views/public/HomeView.vue'
-
-// Views (Doctor)
 import DoctorDashboardHome from '@/views/doctor/DashboardHome.vue'
+import ReviewConsole from '@/views/doctor/ReviewConsole.vue'
 
 const router = createRouter({
-    history: createWebHistory(import.meta.env.BASE_URL),
-    routes: [
-        // 1. Public Routes (Homepage) - THIS WILL WORK
-        {
-            path: '/',
-            component: PublicLayout,
-            children: [
-                {
-                    path: '',
-                    name: 'home',
-                    component: HomeView
-                }
-            ]
-        },
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes: [
+    // PUBLIC
+    {
+      path: '/',
+      component: PublicLayout,
+      children: [
+        { path: '', name: 'home', component: HomeView }
+      ]
+    },
 
-        // 2. Admin Dashboard
+    // AUTH (Using LoginModal as the View)
+    {
+      path: '/login',
+      component: AuthLayout,
+      children: [
         {
-          path: '/admin',
-          component: AdminLayout,
-          meta: { requiresAuth: true, role: 'admin' },
-          children: [
-            {
-              path: '',
-              name: 'admin-dashboard',
-              component: DashboardHome
-            },
-            {
-              path: '/admin/doctors',
-              name: 'admin-doctors',
-              component: DashboardDoctor
-            },
-            {
-              path: '/admin/patients',
-              name: 'admin-patients',
-              component: DashboardPatient
-            }
-          ]
-        },
-
-        // 3. Doctor Dashboard
-        {
-          path: '/doctor',
-          name: 'doctor-dashboard',
-          component: DoctorDashboardHome,
-          meta: { requiresAuth: true, role: 'doctor' }
+          path: '',
+          name: 'login',
+          component: LoginModal // <--- Direct link to your component
         }
-    ]
+      ]
+    },
+
+    // ADMIN
+    {
+      path: '/admin',
+      component: AdminLayout,
+      meta: { requiresAuth: true, role: 'admin' },
+      children: [
+        { path: '', name: 'admin-dashboard', component: DashboardHome },
+        { path: 'doctors', name: 'admin-doctors', component: DashboardDoctor },
+        { path: 'patients', name: 'admin-patients', component: DashboardPatient }
+      ]
+    },
+
+    // DOCTOR
+    {
+      path: '/doctor',
+      component: DoctorLayout,
+      meta: { requiresAuth: true, role: 'doctor' },
+      children: [
+        { path: 'dashboard', name: 'doctor-dashboard', component: DoctorDashboardHome },
+        { path: 'review/:id', name: 'review-console', component: ReviewConsole, props: true }
+      ]
+    }
+  ]
 })
 
 // Navigation Guard
 router.beforeEach((to, from, next) => {
-  const userRole = localStorage.getItem('userRole')
-  
   if (to.meta.requiresAuth) {
-    // Check if user is logged in
+    const userRole = localStorage.getItem('userRole')
     if (!userRole) {
-      next('/') // Redirect to home if not logged in
+      next('/login')
       return
     }
-
-    // Check if user has correct role
     if (to.meta.role && to.meta.role !== userRole) {
-      alert('Unauthorized access!')
-      // Redirect to their appropriate dashboard if they try to access wrong one
       if (userRole === 'admin') next('/admin')
-      else if (userRole === 'doctor') next('/doctor')
-      else next('/')
+      else if (userRole === 'doctor') next('/doctor/dashboard')
+      else next('/login')
       return
     }
   }
-
-  // No specific login page to guard against anymore, since it's a modal on PublicLayout
-  // But if we had other public auth pages, we'd check them here.
-
   next()
 })
 
