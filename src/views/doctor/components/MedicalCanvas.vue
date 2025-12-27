@@ -1,39 +1,43 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 
 const props = defineProps({
   baseImageSrc: String,
-  heatmapImageSrc: String,
-  opacity: Number,
-  brushSize: Number,
-  tool: String
+  showGradCam: Boolean, // Toggles the "Blue Heatmap"
+  gradCamOpacity: Number
 });
 
-// We emit the final lines back to the parent when saved
-const emit = defineEmits(['update:lines']);
+const emit = defineEmits(['update:drawings']);
 
-const stageConfig = ref({ width: 500, height: 500 });
+// Configuration
+const width = 400;
+const height = 400;
+const stageConfig = { width, height };
+
+// State
 const isDrawing = ref(false);
-const lines = ref([]);
+const lines = ref([]); // Right Side Drawings (Green)
+const baseImageObj = ref(null);
 
-// Load Images
-const baseImage = new Image();
-baseImage.src = props.baseImageSrc;
-const heatmapImage = new Image();
-heatmapImage.src = props.heatmapImageSrc || ""; // Handle empty heatmap
+// Load the X-Ray Image
+const img = new Image();
+img.src = props.baseImageSrc;
+img.crossOrigin = "Anonymous";
+img.onload = () => {
+  baseImageObj.value = img;
+};
 
-// Drawing Logic
+// --- DRAWING LOGIC (Right Side Only) ---
 const handleMouseDown = (e) => {
   isDrawing.value = true;
   const pos = e.target.getStage().getPointerPosition();
-  lines.value = [...lines.value, { tool: props.tool, points: [pos.x, pos.y] }];
+  lines.value = [...lines.value, { points: [pos.x, pos.y] }];
 };
 
 const handleMouseMove = (e) => {
   if (!isDrawing.value) return;
   const stage = e.target.getStage();
   const point = stage.getPointerPosition();
-  
   let lastLine = lines.value[lines.value.length - 1];
   lastLine.points = lastLine.points.concat([point.x, point.y]);
   lines.value.splice(lines.value.length - 1, 1, lastLine);
@@ -41,37 +45,83 @@ const handleMouseMove = (e) => {
 
 const handleMouseUp = () => {
   isDrawing.value = false;
-  emit('update:lines', lines.value); // Tell parent we drew something
+  emit('update:drawings', lines.value); // Send data back to parent
 };
 </script>
 
 <template>
-  <div class="bg-black rounded-lg overflow-hidden relative shadow-inner cursor-crosshair">
-    <v-stage 
-      :config="stageConfig"
-      @mousedown="handleMouseDown"
-      @mousemove="handleMouseMove"
-      @mouseup="handleMouseUp"
-      @mouseleave="handleMouseUp"
-    >
-      <v-layer>
-        <v-image :config="{ image: baseImage, width: 500, height: 500 }" />
+  <div class="flex flex-col md:flex-row gap-6 justify-center">
+    
+    <div class="flex flex-col items-center">
+      <div class="rounded-xl overflow-hidden border-4 border-white shadow-lg relative bg-black" :style="{ width: width + 'px', height: height + 'px' }">
+        <v-stage :config="stageConfig">
+          <v-layer>
+            <v-image v-if="baseImageObj" :config="{ image: baseImageObj, width, height }" />
+            
+            <v-rect 
+              v-if="showGradCam"
+              :config="{
+                x: 0, y: 0, width, height,
+                fill: 'blue',
+                opacity: 0.3, // Base blue tint
+                globalCompositeOperation: 'overlay'
+              }"
+            />
+            <v-circle 
+              v-if="showGradCam"
+              :config="{
+                x: width/2, y: height/2 + 20, radius: 60,
+                fillRadialGradientStartPoint: { x: 0, y: 0 },
+                fillRadialGradientStartRadius: 0,
+                fillRadialGradientEndPoint: { x: 0, y: 0 },
+                fillRadialGradientEndRadius: 60,
+                fillRadialGradientColorStops: [0, 'red', 0.5, 'yellow', 1, 'transparent'],
+                opacity: gradCamOpacity, // Controlled by slider
+                globalCompositeOperation: 'screen'
+              }"
+            />
 
-        <v-image :config="{ image: heatmapImage, width: 500, height: 500, opacity: props.opacity }" />
+            <v-line 
+              :config="{
+                points: [150, 180, 200, 150, 250, 180, 240, 240, 160, 240, 150, 180],
+                stroke: '#0099ff', strokeWidth: 4, tension: 0.5, closed: true
+              }"
+            />
+          </v-layer>
+        </v-stage>
+      </div>
+      <p class="mt-3 font-bold text-slate-600">Model Output</p>
+    </div>
 
-        <v-line
-          v-for="(line, i) in lines"
-          :key="i"
-          :config="{
-            points: line.points,
-            stroke: '#00ff00', 
-            strokeWidth: props.brushSize,
-            tension: 0.5,
-            lineCap: 'round',
-            globalCompositeOperation: line.tool === 'eraser' ? 'destination-out' : 'source-over'
-          }"
-        />
-      </v-layer>
-    </v-stage>
+    <div class="flex flex-col items-center">
+      <div class="rounded-xl overflow-hiddenYZ border-4 border-white shadow-lg bg-black cursor-crosshair" :style="{ width: width + 'px', height: height + 'px' }">
+        <v-stage 
+          :config="stageConfig"
+          @mousedown="handleMouseDown"
+          @mousemove="handleMouseMove"
+          @mouseup="handleMouseUp"
+          @mouseleave="handleMouseUp"
+        >
+          <v-layer>
+            <v-image v-if="baseImageObj" :config="{ image: baseImageObj, width, height }" />
+
+            <v-line 
+              v-for="(line, i) in lines"
+              :key="i"
+              :config="{
+                points: line.points,
+                stroke: '#39db4a', // Bright Green
+                strokeWidth: 5,
+                tension: 0.5,
+                lineCap: 'round',
+                lineJoin: 'round'
+              }"
+            />
+          </v-layer>
+        </v-stage>
+      </div>
+      <p class="mt-3 font-bold text-slate-600">Brush</p>
+    </div>
+
   </div>
 </template>
