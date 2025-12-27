@@ -21,8 +21,8 @@ const baseImageObj = ref(null);
 
 // Load the X-Ray Image
 const img = new Image();
-img.src = props.baseImageSrc;
-img.crossOrigin = "Anonymous";
+img.crossOrigin = "Anonymous"; // <--- 1. FIRST!
+img.src = props.baseImageSrc;  // <--- 2. SECOND!
 img.onload = () => {
   baseImageObj.value = img;
 };
@@ -51,42 +51,35 @@ const handleMouseUp = () => {
 
 <template>
   <div class="flex flex-col md:flex-row gap-6 justify-center">
-    
+
     <div class="flex flex-col items-center">
-      <div class="rounded-xl overflow-hidden border-4 border-white shadow-lg relative bg-black" :style="{ width: width + 'px', height: height + 'px' }">
+      <div class="rounded-xl overflow-hidden border-4 border-white shadow-lg relative bg-black"
+        :style="{ width: width + 'px', height: height + 'px' }">
         <v-stage :config="stageConfig">
           <v-layer>
             <v-image v-if="baseImageObj" :config="{ image: baseImageObj, width, height }" />
-            
-            <v-rect 
-              v-if="showGradCam"
-              :config="{
-                x: 0, y: 0, width, height,
-                fill: 'blue',
-                opacity: 0.3, // Base blue tint
-                globalCompositeOperation: 'overlay'
-              }"
-            />
-            <v-circle 
-              v-if="showGradCam"
-              :config="{
-                x: width/2, y: height/2 + 20, radius: 60,
-                fillRadialGradientStartPoint: { x: 0, y: 0 },
-                fillRadialGradientStartRadius: 0,
-                fillRadialGradientEndPoint: { x: 0, y: 0 },
-                fillRadialGradientEndRadius: 60,
-                fillRadialGradientColorStops: [0, 'red', 0.5, 'yellow', 1, 'transparent'],
-                opacity: gradCamOpacity, // Controlled by slider
-                globalCompositeOperation: 'screen'
-              }"
-            />
 
-            <v-line 
-              :config="{
-                points: [150, 180, 200, 150, 250, 180, 240, 240, 160, 240, 150, 180],
-                stroke: '#0099ff', strokeWidth: 4, tension: 0.5, closed: true
-              }"
-            />
+            <v-rect v-if="showGradCam" :config="{
+              x: 0, y: 0, width, height,
+              fill: 'blue',
+              opacity: 0.3, // Base blue tint
+              globalCompositeOperation: 'overlay'
+            }" />
+            <v-circle v-if="showGradCam" :config="{
+              x: width / 2, y: height / 2 + 20, radius: 60,
+              fillRadialGradientStartPoint: { x: 0, y: 0 },
+              fillRadialGradientStartRadius: 0,
+              fillRadialGradientEndPoint: { x: 0, y: 0 },
+              fillRadialGradientEndRadius: 60,
+              fillRadialGradientColorStops: [0, 'red', 0.5, 'yellow', 1, 'transparent'],
+              opacity: gradCamOpacity, // Controlled by slider
+              globalCompositeOperation: 'screen'
+            }" />
+
+            <v-line :config="{
+              points: [150, 180, 200, 150, 250, 180, 240, 240, 160, 240, 150, 180],
+              stroke: '#0099ff', strokeWidth: 4, tension: 0.5, closed: true
+            }" />
           </v-layer>
         </v-stage>
       </div>
@@ -94,29 +87,21 @@ const handleMouseUp = () => {
     </div>
 
     <div class="flex flex-col items-center">
-      <div class="rounded-xl overflow-hiddenYZ border-4 border-white shadow-lg bg-black cursor-crosshair" :style="{ width: width + 'px', height: height + 'px' }">
-        <v-stage 
-          :config="stageConfig"
-          @mousedown="handleMouseDown"
-          @mousemove="handleMouseMove"
-          @mouseup="handleMouseUp"
-          @mouseleave="handleMouseUp"
-        >
+      <div class="rounded-xl overflow-hiddenYZ border-4 border-white shadow-lg bg-black cursor-crosshair"
+        :style="{ width: width + 'px', height: height + 'px' }">
+        <v-stage :config="stageConfig" @mousedown="handleMouseDown" @mousemove="handleMouseMove"
+          @mouseup="handleMouseUp" @mouseleave="handleMouseUp">
           <v-layer>
             <v-image v-if="baseImageObj" :config="{ image: baseImageObj, width, height }" />
 
-            <v-line 
-              v-for="(line, i) in lines"
-              :key="i"
-              :config="{
-                points: line.points,
-                stroke: '#39db4a', // Bright Green
-                strokeWidth: 5,
-                tension: 0.5,
-                lineCap: 'round',
-                lineJoin: 'round'
-              }"
-            />
+            <v-line v-for="(line, i) in lines" :key="i" :config="{
+              points: line.points,
+              stroke: '#39db4a', // Bright Green
+              strokeWidth: 5,
+              tension: 0.5,
+              lineCap: 'round',
+              lineJoin: 'round'
+            }" />
           </v-layer>
         </v-stage>
       </div>
