@@ -1,33 +1,52 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, watch } from 'vue'; // Import watch
 
 const props = defineProps({
   baseImageSrc: String,
-  showGradCam: Boolean, // Toggles the "Blue Heatmap"
+  showGradCam: Boolean,
   gradCamOpacity: Number
 });
 
 const emit = defineEmits(['update:drawings']);
 
-// Configuration
 const width = 400;
 const height = 400;
 const stageConfig = { width, height };
 
-// State
 const isDrawing = ref(false);
-const lines = ref([]); // Right Side Drawings (Green)
+const lines = ref([]);
 const baseImageObj = ref(null);
 
-// Load the X-Ray Image
-const img = new Image();
-img.crossOrigin = "Anonymous"; // <--- 1. FIRST!
-img.src = props.baseImageSrc;  // <--- 2. SECOND!
-img.onload = () => {
-  baseImageObj.value = img;
+// --- 1. ROBUST IMAGE LOADING FUNCTION ---
+const loadImage = (src) => {
+  if (!src) return;
+
+  const img = new Image();
+
+  // 1. KEEP THIS COMMENTED OUT (for local images)
+  // img.crossOrigin = "Anonymous";
+
+  // 2. DEFINE THE LISTENER FIRST
+  img.onload = () => {
+    baseImageObj.value = img;
+  };
+
+  img.onerror = (err) => {
+    console.error("Canvas failed to load image:", src, err);
+  };
+
+  // 3. TRIGGER THE LOAD LAST (Swap this to the bottom)
+  img.src = src;
 };
 
-// --- DRAWING LOGIC (Right Side Only) ---
+// --- 2. THE FIX: WATCH FOR CHANGES ---
+// This tells the canvas: "If the image source changes, run loadImage again!"
+watch(() => props.baseImageSrc, (newSrc) => {
+  loadImage(newSrc);
+  lines.value = []; // Clear old drawings
+}, { immediate: true }); // 'immediate: true' makes it run on the very first load too
+
+// --- Drawing Logic ---
 const handleMouseDown = (e) => {
   isDrawing.value = true;
   const pos = e.target.getStage().getPointerPosition();
@@ -38,6 +57,9 @@ const handleMouseMove = (e) => {
   if (!isDrawing.value) return;
   const stage = e.target.getStage();
   const point = stage.getPointerPosition();
+
+  if (lines.value.length === 0) return;
+
   let lastLine = lines.value[lines.value.length - 1];
   lastLine.points = lastLine.points.concat([point.x, point.y]);
   lines.value.splice(lines.value.length - 1, 1, lastLine);
@@ -45,7 +67,7 @@ const handleMouseMove = (e) => {
 
 const handleMouseUp = () => {
   isDrawing.value = false;
-  emit('update:drawings', lines.value); // Send data back to parent
+  emit('update:drawings', lines.value);
 };
 </script>
 
@@ -62,7 +84,7 @@ const handleMouseUp = () => {
             <v-rect v-if="showGradCam" :config="{
               x: 0, y: 0, width, height,
               fill: 'blue',
-              opacity: 0.3, // Base blue tint
+              opacity: 0.3,
               globalCompositeOperation: 'overlay'
             }" />
             <v-circle v-if="showGradCam" :config="{
@@ -72,10 +94,9 @@ const handleMouseUp = () => {
               fillRadialGradientEndPoint: { x: 0, y: 0 },
               fillRadialGradientEndRadius: 60,
               fillRadialGradientColorStops: [0, 'red', 0.5, 'yellow', 1, 'transparent'],
-              opacity: gradCamOpacity, // Controlled by slider
+              opacity: gradCamOpacity,
               globalCompositeOperation: 'screen'
             }" />
-
             <v-line :config="{
               points: [150, 180, 200, 150, 250, 180, 240, 240, 160, 240, 150, 180],
               stroke: '#0099ff', strokeWidth: 4, tension: 0.5, closed: true
@@ -87,7 +108,7 @@ const handleMouseUp = () => {
     </div>
 
     <div class="flex flex-col items-center">
-      <div class="rounded-xl overflow-hiddenYZ border-4 border-white shadow-lg bg-black cursor-crosshair"
+      <div class="rounded-xl overflow-hidden border-4 border-white shadow-lg bg-black cursor-crosshair"
         :style="{ width: width + 'px', height: height + 'px' }">
         <v-stage :config="stageConfig" @mousedown="handleMouseDown" @mousemove="handleMouseMove"
           @mouseup="handleMouseUp" @mouseleave="handleMouseUp">
@@ -96,7 +117,7 @@ const handleMouseUp = () => {
 
             <v-line v-for="(line, i) in lines" :key="i" :config="{
               points: line.points,
-              stroke: '#39db4a', // Bright Green
+              stroke: '#39db4a',
               strokeWidth: 5,
               tension: 0.5,
               lineCap: 'round',

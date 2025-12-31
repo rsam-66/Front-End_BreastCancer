@@ -3,10 +3,14 @@ import { ref } from 'vue';
 import { useRoute } from 'vue-router';
 import MedicalCanvas from './components/MedicalCanvas.vue';
 import DiagnosisPanel from './components/DiagnosisPanel.vue';
-import ImageInputModal from '@/components/common/ImageInputModal.vue';
+
+// --- FIX STARTS HERE ---
+// Change '@' to relative path '../../' so Vite can find the file without config
+import ImageInputModal from '../../components/common/ImageInputModal.vue';
+import defaultCystImage from '../../assets/images/cyst-ultrasound.jpg';
+// --- FIX ENDS HERE ---
 
 const route = useRoute();
-const patientId = route.params.id || 'P001';
 
 // --- STATE ---
 const showGradCam = ref(false);
@@ -16,13 +20,12 @@ const doctorNote = ref("");
 const doctorAgreement = ref(null);
 const isSaved = ref(false);
 
-// Snapshot state for the result card
+// Snapshot state
 const savedDiagnosis = ref({ agreement: null, note: null });
-
 const showImageModal = ref(false);
 
-// FIX: Use this Placeholder URL first. Wikimedia blocks localhost canvas often.
-const currentImageSrc = ref("https://placehold.co/600x600/222/fff/png?text=X-Ray+Scan");
+// --- USE THE IMPORTED IMAGE VARIABLE ---
+const currentImageSrc = ref(defaultCystImage);
 
 const handleImageUpdate = (newSrc) => {
   currentImageSrc.value = newSrc;
@@ -35,7 +38,6 @@ const handleSave = () => {
     return;
   }
 
-  // 1. FREEZE the diagnosis into a snapshot variable
   savedDiagnosis.value = {
     agreement: doctorAgreement.value,
     note: doctorNote.value
@@ -145,7 +147,6 @@ const handleSave = () => {
               <div class="flex-1 space-y-4">
                 <div class="flex items-center gap-2">
                   <span class="font-bold text-slate-600">Agree With AI Diagnosis?</span>
-
                   <span class="font-bold"
                     :class="savedDiagnosis.agreement === 'agree' ? 'text-green-500' : 'text-red-500'">
                     {{ savedDiagnosis.agreement === 'agree' ? 'Agree' : 'Disagree' }}
