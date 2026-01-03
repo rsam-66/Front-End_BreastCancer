@@ -30,7 +30,8 @@ const router = createRouter({
       path: '/',
       component: PublicLayout,
       children: [
-        { path: '', name: 'home', component: HomeView }
+        { path: '', name: 'home', component: HomeView },
+        { path: 'setup-verification', name: 'supabase-test', component: () => import('@/views/SupabaseTest.vue') }
       ]
     },
 
