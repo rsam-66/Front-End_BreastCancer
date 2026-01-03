@@ -102,9 +102,11 @@ export const dataService = {
   },
 
   async updateDoctor(id, updates) {
+    const { password, ...updateData } = updates;
+
     const { data, error } = await supabase
       .from("users")
-      .update(updates)
+      .update(updateData)
       .eq("id", id)
       .select();
 
@@ -116,6 +118,18 @@ export const dataService = {
   },
 
   async deleteDoctor(id) {
+    // 1. Update activity_logs to set user_id to NULL to avoid FK violation
+    const { error: logError } = await supabase
+      .from("activity_logs")
+      .update({ user_id: null })
+      .eq("user_id", id);
+
+    if (logError) {
+      console.error("Error unlinking activity logs:", logError);
+      throw new Error("Failed to unlink activity logs before deleting doctor");
+    }
+
+    // 2. Now delete the doctor
     const { error } = await supabase.from("users").delete().eq("id", id);
 
     if (error) throw error;

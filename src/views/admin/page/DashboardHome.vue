@@ -3,6 +3,12 @@ import { ref, onMounted } from "vue";
 import { dataService } from "@/services/dataService.js";
 import Loading from "@/components/common/Loading.vue";
 
+// Import PNG Icons
+import PatientIcon from "@/assets/admin/patient.png";
+import DoctorIcon from "@/assets/admin/doctor.png";
+import ImageIcon from "@/assets/admin/image.png";
+import WaitingIcon from "@/assets/admin/waiting.png";
+
 const stats = ref([]);
 const activities = ref([]);
 const isLoading = ref(true);
@@ -23,13 +29,37 @@ const fetchData = async () => {
   }
 };
 
+// Simple helper to get colors for activity icons matching the design
+const getActivityIconColor = (index) => {
+  // Alternating/Variety based on screenshot intuition or data
+  // Design showed: green, blue, blue, green essentially
+  const colors = [
+    "bg-green-100 text-green-600",
+    "bg-blue-100 text-[#0099ff]",
+    "bg-[#dbeafe] text-[#006699]",
+    "bg-green-100 text-green-600",
+  ];
+  return colors[index % colors.length];
+};
+
+const getActivityIcon = (index) => {
+  // 0: Image (Green)
+  // 1: Add Patient (Blue)
+  // 2: Doctor (Dark Blue)
+  // 3: Image (Green)
+  // Return the imported image objects directly
+  const icons = [ImageIcon, PatientIcon, DoctorIcon, ImageIcon];
+  return icons[index % icons.length];
+};
+
 onMounted(() => {
   fetchData();
 });
 </script>
 
 <template>
-  <div>
+  <div class="w-full">
+    <!-- Header Text -->
     <div class="text-center mb-8">
       <h2 class="text-gray-500 font-medium text-lg">
         Leading-edge technology for better diagnosis
@@ -40,140 +70,148 @@ onMounted(() => {
       <Loading text="Loading dashboard data..." />
     </div>
 
-    <div
-      v-else
-      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12"
-    >
-      <div
-        v-for="stat in stats"
-        :key="stat.label"
-        class="bg-white rounded-xl p-5 shadow-sm border relative overflow-hidden transition-transform hover:-translate-y-1"
-        :class="stat.color === 'red' ? 'border-red-100' : 'border-blue-100'"
-      >
-        <div class="flex justify-between items-start h-full relative z-10">
-          <div
-            class="p-3 rounded-lg"
-            :class="
-              stat.color === 'red'
-                ? 'bg-red-50 text-red-500'
-                : stat.color === 'green'
-                ? 'bg-green-50 text-green-500'
-                : 'bg-blue-50 text-blue-500'
-            "
-          >
-            <svg
-              v-if="stat.icon === 'users'"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke-width="1.5"
-              stroke="currentColor"
-              class="w-6 h-6"
+    <div v-else>
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <!-- Card 1: Total Patient -->
+        <div
+          class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm relative h-32 flex flex-col justify-between group hover:border-[#0099ff]/50 transition-all cursor-pointer"
+        >
+          <div class="flex items-start justify-between">
+            <div
+              class="bg-blue-50 p-2.5 rounded-xl min-w-[48px] h-[48px] flex items-center justify-center"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
+              <img
+                :src="PatientIcon"
+                alt="Total Patient"
+                class="w-6 h-6 object-contain"
               />
-            </svg>
-            <svg
-              v-else-if="stat.icon === 'user-md'"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke-width="1.5"
-              stroke="currentColor"
-              class="w-6 h-6"
+            </div>
+            <span class="text-gray-500 text-sm font-medium pt-1 text-right"
+              >Total Patient</span
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-              />
-            </svg>
-            <svg
-              v-else-if="stat.icon === 'image'"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke-width="1.5"
-              stroke="currentColor"
-              class="w-6 h-6"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
-              />
-            </svg>
-            <svg
-              v-else
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke-width="1.5"
-              stroke="currentColor"
-              class="w-6 h-6"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
           </div>
-
-          <div class="ml-4 flex-1">
-            <h3 class="text-gray-500 text-sm font-medium">{{ stat.label }}</h3>
+          <div class="flex justify-end items-end">
+            <span
+              class="text-4xl text-gray-800 font-normal leading-none mb-1"
+              >{{ stats[0]?.value || 0 }}</span
+            >
           </div>
         </div>
 
+        <!-- Card 2: Total Doctor -->
         <div
-          class="absolute bottom-2 right-4 text-4xl font-bold"
-          :class="stat.color === 'red' ? 'text-red-500' : 'text-[#0099ff]'"
+          class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm relative h-32 flex flex-col justify-between group hover:border-[#004d80]/50 transition-all cursor-pointer"
         >
-          {{ stat.value }}
+          <div class="flex items-start justify-between">
+            <div
+              class="bg-[#eef5fa] p-2.5 rounded-xl min-w-[48px] h-[48px] flex items-center justify-center"
+            >
+              <img
+                :src="DoctorIcon"
+                alt="Total Doctor"
+                class="w-6 h-6 object-contain"
+              />
+            </div>
+            <span class="text-gray-500 text-sm font-medium pt-1 text-right"
+              >Total Doctor</span
+            >
+          </div>
+          <div class="flex justify-end items-end">
+            <span
+              class="text-4xl text-gray-800 font-normal leading-none mb-1"
+              >{{ stats[1]?.value || 0 }}</span
+            >
+          </div>
+        </div>
+
+        <!-- Card 3: Image Uploaded -->
+        <div
+          class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm relative h-32 flex flex-col justify-between group hover:border-green-500/50 transition-all cursor-pointer"
+        >
+          <div class="flex items-start justify-between">
+            <div
+              class="bg-green-50 p-2.5 rounded-xl min-w-[48px] h-[48px] flex items-center justify-center"
+            >
+              <img
+                :src="ImageIcon"
+                alt="Image Uploaded"
+                class="w-6 h-6 object-contain"
+              />
+            </div>
+            <span class="text-gray-500 text-sm font-medium pt-1 text-right"
+              >Image Uploaded</span
+            >
+          </div>
+          <div class="flex justify-end items-end">
+            <span
+              class="text-4xl text-gray-800 font-normal leading-none mb-1"
+              >{{ stats[2]?.value || 0 }}</span
+            >
+          </div>
+        </div>
+
+        <!-- Card 4: Waiting -->
+        <div
+          class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm relative h-32 flex flex-col justify-between group hover:border-red-500/50 transition-all cursor-pointer"
+        >
+          <div class="flex items-start justify-between">
+            <div
+              class="bg-red-50 p-2.5 rounded-xl min-w-[48px] h-[48px] flex items-center justify-center"
+            >
+              <img
+                :src="WaitingIcon"
+                alt="Waiting For Review"
+                class="w-6 h-6 object-contain"
+              />
+            </div>
+            <span class="text-gray-500 text-sm font-medium pt-1 text-right"
+              >Waiting For Review</span
+            >
+          </div>
+          <div class="flex justify-end items-end">
+            <span
+              class="text-4xl text-gray-800 font-normal leading-none mb-1"
+              >{{ stats[3]?.value || 0 }}</span
+            >
+          </div>
         </div>
       </div>
-    </div>
 
-    <div>
-      <h3 class="font-bold text-gray-800 text-lg mb-6">Newest Activity</h3>
+      <!-- Newest Activity -->
+      <div>
+        <h3 class="font-bold text-gray-800 text-2xl mb-6">Newest Activity</h3>
 
-      <div class="space-y-4">
-        <div
-          v-for="activity in activities"
-          :key="activity.id"
-          class="bg-gray-100 rounded-xl p-4 flex items-center justify-between hover:bg-gray-200 transition-colors"
-        >
-          <div class="flex items-center gap-4">
-            <div
-              class="w-10 h-10 rounded-lg flex items-center justify-center"
-              :class="activity.iconColor"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="1.5"
-                stroke="currentColor"
-                class="w-5 h-5"
+        <div class="space-y-4">
+          <div
+            v-for="(activity, index) in activities"
+            :key="activity.id"
+            class="bg-[#EEEEEE] rounded-2xl p-4 flex items-center justify-between hover:bg-gray-200 transition-colors"
+          >
+            <div class="flex items-center gap-4">
+              <!-- Icon Box -->
+              <div
+                class="w-12 h-12 rounded-xl flex items-center justify-center"
+                :class="getActivityIconColor(index)"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.101.433-.101.66 0 .793.645 1.432 1.432 1.432h.122c.132 0 .263.013.391.038a2.25 2.25 0 012.012 2.63l-.403 2.816a.75.75 0 01-.743.643H6.75a.75.75 0 01-.743-.643l-.403-2.816a2.25 2.25 0 012.012-2.63c.128-.025.259-.038.391-.038h.122c.787 0 1.432-.639 1.432-1.432 0-.227-.036-.45-.101-.66"
+                <img
+                  :src="getActivityIcon(index)"
+                  class="w-6 h-6 object-contain"
                 />
-              </svg>
-            </div>
-            <div>
-              <p class="font-medium text-gray-800">{{ activity.title }}</p>
-              <p class="text-sm text-gray-500">{{ activity.user }}</p>
-            </div>
-          </div>
+              </div>
 
-          <div class="text-sm text-gray-500 font-medium">
-            {{ activity.time }}
+              <!-- Text Info -->
+              <div>
+                <p class="font-bold text-gray-700 text-lg leading-tight">
+                  {{ activity.title }}
+                </p>
+                <p class="text-sm text-gray-400 mt-0.5">{{ activity.user }}</p>
+              </div>
+            </div>
+
+            <div class="text-sm text-gray-400 font-medium">
+              {{ activity.time }}
+            </div>
           </div>
         </div>
       </div>

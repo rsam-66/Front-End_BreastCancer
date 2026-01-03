@@ -1,74 +1,133 @@
 <script setup>
-import BaseModal from '@/components/common/BaseModal.vue'
-import { ref, watch } from 'vue'
+import BaseModal from "@/components/common/BaseModal.vue";
+import { ref, watch } from "vue";
 
 const props = defineProps({
-    isOpen: Boolean,
-    doctor: {
-        type: Object,
-        default: () => ({ name: '', email: '', status: '' })
-    }
-})
+  isOpen: Boolean,
+  doctor: {
+    type: Object,
+    default: () => ({ name: "", email: "", status: "" }),
+  },
+});
 
-const emit = defineEmits(['close', 'submit'])
+const emit = defineEmits(["close", "submit"]);
 
 const form = ref({
-    name: '',
-    email: '',
-    status: 'Active'
-})
+  name: "",
+  email: "",
+  password: "", // Password usually empty on edit unless changing
+  status: "Active",
+});
 
 // Watch for changes in the doctor prop to update the form
-watch(() => props.doctor, (newVal) => {
+watch(
+  () => props.doctor,
+  (newVal) => {
     if (newVal) {
-        form.value = { ...newVal }
+      // Handle both 'username' and 'name' for compatibility, preferring 'name'
+      form.value = {
+        name: newVal.name || newVal.username || "",
+        email: newVal.email || "",
+        password: "", // Reset password field
+        status: newVal.status || "Active",
+      };
     }
-}, { immediate: true })
+  },
+  { immediate: true }
+);
 
 const handleSubmit = () => {
-    emit('submit', { ...form.value })
-}
+  emit("submit", { ...form.value });
+};
 </script>
 
 <template>
-    <BaseModal :isOpen="isOpen" title="Edit Doctor" @close="$emit('close')">
-        <form @submit.prevent="handleSubmit" class="space-y-4">
-            <!-- Name -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                <input v-model="form.name" type="text"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                    required />
-            </div>
+  <BaseModal
+    :isOpen="isOpen"
+    title="Edit Doctor"
+    @close="$emit('close')"
+    :showCloseButton="false"
+    :centerTitle="true"
+  >
+    <div class="space-y-6 px-2">
+      <!-- Name -->
+      <div class="flex items-center gap-4">
+        <label class="w-24 text-sm font-semibold text-gray-600">Name</label>
+        <input
+          v-model="form.name"
+          type="text"
+          class="flex-1 px-4 py-2.5 bg-gray-100 rounded-lg outline-none text-gray-700"
+          required
+        />
+      </div>
 
-            <!-- Email -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input v-model="form.email" type="email"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                    required />
-            </div>
+      <!-- Email -->
+      <div class="flex items-center gap-4">
+        <label class="w-24 text-sm font-semibold text-gray-600">Email</label>
+        <input
+          v-model="form.email"
+          type="email"
+          class="flex-1 px-4 py-2.5 bg-gray-100 rounded-lg outline-none text-gray-700"
+          required
+        />
+      </div>
 
-            <!-- Status -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select v-model="form.status"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                </select>
-            </div>
-        </form>
+      <!-- Password -->
+      <div class="flex items-center gap-4">
+        <label class="w-24 text-sm font-semibold text-gray-600">Password</label>
+        <input
+          v-model="form.password"
+          type="password"
+          placeholder="(Unchanged)"
+          class="flex-1 px-4 py-2.5 bg-gray-100 rounded-lg outline-none text-gray-700"
+        />
+      </div>
 
-        <template #footer>
-            <button @click="$emit('close')"
-                class="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium">
-                Cancel
-            </button>
-            <button @click="handleSubmit"
-                class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium shadow-sm hover:shadow">
-                Save Changes
-            </button>
-        </template>
-    </BaseModal>
+      <!-- Status Custom Toggle -->
+      <div class="flex items-center gap-4">
+        <label class="w-24 text-sm font-semibold text-gray-600">Status</label>
+        <div class="flex-1 bg-gray-100 rounded-full p-1 flex">
+          <button
+            type="button"
+            @click="form.status = 'Active'"
+            class="flex-1 py-1.5 rounded-full text-sm font-medium transition-all duration-200"
+            :class="
+              form.status === 'Active'
+                ? 'bg-white text-green-500 shadow-sm'
+                : 'text-gray-400 hover:text-gray-500'
+            "
+          >
+            Active
+          </button>
+          <button
+            type="button"
+            @click="form.status = 'Inactive'"
+            class="flex-1 py-1.5 rounded-full text-sm font-medium transition-all duration-200"
+            :class="
+              form.status === 'Inactive'
+                ? 'bg-white text-[#0099ff] shadow-sm'
+                : 'text-gray-400 hover:text-gray-500'
+            "
+          >
+            Inactive
+          </button>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <div class="pt-4">
+        <button
+          @click="handleSubmit"
+          class="w-full py-3 bg-[#0099ff] hover:bg-blue-600 text-white rounded-full font-bold text-lg transition-colors shadow-lg shadow-blue-200"
+        >
+          Save Changes
+        </button>
+      </div>
+    </div>
+
+    <!-- Hiding default footer -->
+    <template #footer>
+      <div class="hidden"></div>
+    </template>
+  </BaseModal>
 </template>
