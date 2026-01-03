@@ -1,6 +1,5 @@
 <script setup>
 import { ref, onMounted } from "vue";
-import { stats } from "../data/dashboardData.js";
 import { dataService } from "@/services/dataService.js";
 import { useToast } from "@/composables/useToast";
 import Loading from "@/components/common/Loading.vue";
@@ -11,6 +10,7 @@ import ModalDeleteDoctor from "../components/ModalDeleteDoctor.vue";
 const heads = ["ID", "Name", "Email", "Status", "Actions"];
 
 const doctorList = ref([]);
+const stats = ref([]);
 const isAddModalOpen = ref(false);
 const isEditModalOpen = ref(false);
 const isDeleteModalOpen = ref(false);
@@ -20,21 +20,26 @@ const errorMessage = ref("");
 
 const toast = useToast();
 
-const fetchDoctors = async () => {
+const fetchData = async () => {
   isLoading.value = true;
   try {
-    doctorList.value = await dataService.getDoctors();
+    const [doctorsData, statsData] = await Promise.all([
+      dataService.getDoctors(),
+      dataService.getDashboardStats(),
+    ]);
+    doctorList.value = doctorsData;
+    stats.value = statsData;
   } catch (error) {
-    console.error("Error fetching doctors:", error);
-    errorMessage.value = "Failed to load doctors.";
-    toast.error("Failed to load doctors");
+    console.error("Error fetching data:", error);
+    errorMessage.value = "Failed to load data.";
+    toast.error("Failed to load data");
   } finally {
     isLoading.value = false;
   }
 };
 
 onMounted(() => {
-  fetchDoctors();
+  fetchData();
 });
 
 const openAddModal = () => {
@@ -54,7 +59,7 @@ const openDeleteModal = (doctor) => {
 const handleAddDoctor = async (newDoctor) => {
   try {
     await dataService.addDoctor(newDoctor);
-    await fetchDoctors();
+    await fetchData();
     isAddModalOpen.value = false;
     toast.success("Doctor added successfully");
   } catch (error) {
@@ -66,7 +71,7 @@ const handleAddDoctor = async (newDoctor) => {
 const handleEditDoctor = async (updatedDoctor) => {
   try {
     await dataService.updateDoctor(selectedDoctor.value.id, updatedDoctor);
-    await fetchDoctors();
+    await fetchData();
     isEditModalOpen.value = false;
     selectedDoctor.value = null;
     toast.success("Doctor updated successfully");
@@ -79,9 +84,7 @@ const handleEditDoctor = async (updatedDoctor) => {
 const handleDeleteDoctor = async () => {
   try {
     await dataService.deleteDoctor(selectedDoctor.value.id);
-    doctorList.value = doctorList.value.filter(
-      (d) => d.id !== selectedDoctor.value.id
-    );
+    await fetchData(); // Refresh list and stats
     isDeleteModalOpen.value = false;
     selectedDoctor.value = null;
     toast.success("Doctor deleted successfully");

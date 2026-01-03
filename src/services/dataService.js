@@ -226,45 +226,76 @@ export const dataService = {
   },
 
   async getDashboardStats() {
-    const { count: patientCount } = await supabase
-      .from("patients")
-      .select("*", { count: "exact", head: true });
-    const { count: doctorCount } = await supabase
-      .from("users")
-      .select("*", { count: "exact", head: true })
-      .eq("role", "doctor");
+    let patientCount = 0;
+    let doctorCount = 0;
+    let imageCount = 0;
+    let waitingCount = 0;
 
-    const { count: imageCount } = await supabase
-      .from("medical_records")
-      .select("*", { count: "exact", head: true })
-      .not("original_image_path", "is", null);
-    const { count: waitingCount } = await supabase
-      .from("medical_records")
-      .select("*", { count: "exact", head: true })
-      .eq("validation_status", "PENDING");
+    try {
+      const { count, error } = await supabase
+        .from("patients")
+        .select("*", { count: "exact", head: true });
+      if (error) console.error("Error fetching patient count:", error);
+      else patientCount = count || 0;
+    } catch (e) {
+      console.error("Exception fetching patient count:", e);
+    }
+
+    try {
+      const { count, error } = await supabase
+        .from("users")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "doctor");
+      if (error) console.error("Error fetching doctor count:", error);
+      else doctorCount = count || 0;
+    } catch (e) {
+      console.error("Exception fetching doctor count:", e);
+    }
+
+    try {
+      const { count, error } = await supabase
+        .from("medical_records")
+        .select("*", { count: "exact", head: true })
+        .not("original_image_path", "is", null);
+      if (error) console.error("Error fetching image count:", error);
+      else imageCount = count || 0;
+    } catch (e) {
+      console.error("Exception fetching image count:", e);
+    }
+
+    try {
+      const { count, error } = await supabase
+        .from("medical_records")
+        .select("*", { count: "exact", head: true })
+        .eq("validation_status", "PENDING");
+      if (error) console.error("Error fetching waiting count:", error);
+      else waitingCount = count || 0;
+    } catch (e) {
+      console.error("Exception fetching waiting count:", e);
+    }
 
     return [
       {
         label: "Total Patient",
-        value: patientCount || 0,
+        value: patientCount,
         icon: "users",
         color: "blue",
       },
       {
         label: "Total Doctor",
-        value: doctorCount || 0,
+        value: doctorCount,
         icon: "user-md",
         color: "green",
       },
       {
         label: "Image Uploaded",
-        value: imageCount || 0,
+        value: imageCount,
         icon: "image",
         color: "blue",
       },
       {
         label: "Waiting For Review",
-        value: waitingCount || 0,
+        value: waitingCount,
         icon: "clock",
         color: "red",
       },
@@ -312,5 +343,118 @@ export const dataService = {
       "AI_ANALYSIS",
       `Performed AI Analysis for patient ID: ${patientId}. Result: ${result}`
     );
+  },
+
+  async changePassword(currentPassword, newPassword) {
+    // 1. Get current user
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) throw new Error("not_authenticated");
+
+    // 2. Re-authenticate to verify current password
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+
+    if (signInError) {
+      throw new Error("incorrect_password");
+    }
+
+    // 3. Update password
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (updateError) throw updateError;
+
+    await logActivity("CHANGE_PASSWORD", "User changed their password");
+
+    return true;
+  },
+
+  async getPatientById(id) {
+    const { data, error } = await supabase
+      .from("patients")
+      .select(
+        `
+        *,
+        medical_records (
+          id,
+          original_image_path,
+          validation_status,
+          ai_diagnosis,
+          doctor_diagnosis,
+          doctor_notes,
+          uploaded_at
+        )
+      `
+      )
+      .eq("id", id)
+      .single();
+
+    if (error) throw error;
+
+    // Get latest record
+    const latestRecord =
+      data.medical_records && data.medical_records.length > 0
+        ? data.medical_records[data.medical_records.length - 1]
+        : null;
+
+    let imageUrl = null;
+    if (latestRecord && latestRecord.original_image_path) {
+      imageUrl = getPublicImageUrl(
+        latestRecord.original_image_path,
+        "breast-cancer-images"
+      );
+    }
+
+    return {
+      ...data,
+      image: imageUrl, // for UI display
+      latestRecord: latestRecord, // for review data
+    };
+  },
+
+  async saveDoctorReview(recordId, { agreement, note }) {
+    const updates = {
+      doctor_notes: note,
+      validation_status: "Done",
+      doctor_diagnosis:
+        agreement === "agree" ? "Agreed with AI" : "Disagreed with AI",
+    };
+
+    const { data, error } = await supabase
+      .from("medical_records")
+      .update(updates)
+      .eq("id", recordId)
+      .select();
+
+    if (error) throw error;
+
+    await logActivity("DOCTOR_REVIEW", `Doctor reviewed record ${recordId}`);
+
+    return data[0];
+  },
+
+  async getCurrentUser() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", user.email)
+      .single();
+
+    if (error) {
+      console.error("Error fetching current user details:", error);
+      return null;
+    }
+    return data;
   },
 };

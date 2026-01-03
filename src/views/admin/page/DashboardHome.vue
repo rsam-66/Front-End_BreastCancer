@@ -9,15 +9,21 @@ const isLoading = ref(true);
 
 const fetchData = async () => {
   isLoading.value = true;
+
+  // Fetch Stats
   try {
-    const [statsData, activitiesData] = await Promise.all([
-      dataService.getDashboardStats(),
-      dataService.getActivities(),
-    ]);
+    const statsData = await dataService.getDashboardStats();
     stats.value = statsData;
+  } catch (error) {
+    console.error("Failed to fetch dashboard stats:", error);
+  }
+
+  // Fetch Activities
+  try {
+    const activitiesData = await dataService.getActivities();
     activities.value = activitiesData;
   } catch (error) {
-    console.error("Failed to fetch dashboard data:", error);
+    console.error("Failed to fetch activities:", error);
   } finally {
     isLoading.value = false;
   }
@@ -128,53 +134,55 @@ onMounted(() => {
           </div>
         </div>
 
-        <div
-          class="absolute bottom-2 right-4 text-4xl font-bold"
-          :class="stat.color === 'red' ? 'text-red-500' : 'text-[#0099ff]'"
-        >
-          {{ stat.value }}
+        <div class="absolute bottom-0 right-0 flex justify-end items-center mr-4">
+          <span
+            class="text-4xl font-bold leading-none mb-1 "
+            :class="stat.color === 'red' ? 'text-red-500' : 'text-[#0099ff]'"
+          >
+            {{ stat.value }}
+          </span>
         </div>
       </div>
     </div>
+  </div>
 
-    <div>
-      <h3 class="font-bold text-gray-800 text-lg mb-6">Newest Activity</h3>
+  <div>
+    <h3 class="font-bold text-gray-800 text-lg mb-6">Newest Activity</h3>
 
-      <div class="space-y-4">
-        <div
-          v-for="activity in activities"
-          :key="activity.id"
-          class="bg-gray-100 rounded-xl p-4 flex items-center justify-between hover:bg-gray-200 transition-colors"
-        >
-          <div class="flex items-center gap-4">
-            <div
-              class="w-10 h-10 rounded-lg flex items-center justify-center"
-              :class="activity.iconColor"
+    <div class="space-y-4">
+      <div
+        v-for="activity in activities"
+        :key="activity.id"
+        class="bg-gray-100 rounded-xl p-4 flex items-center justify-between hover:bg-gray-200 transition-colors"
+      >
+        <div class="flex items-center gap-4">
+          <div
+            class="w-10 h-10 rounded-lg flex items-center justify-center"
+            :class="activity.iconColor"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+              class="w-5 h-5"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="1.5"
-                stroke="currentColor"
-                class="w-5 h-5"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.101.433-.101.66 0 .793.645 1.432 1.432 1.432h.122c.132 0 .263.013.391.038a2.25 2.25 0 012.012 2.63l-.403 2.816a.75.75 0 01-.743.643H6.75a.75.75 0 01-.743-.643l-.403-2.816a2.25 2.25 0 012.012-2.63c.128-.025.259-.038.391-.038h.122c.787 0 1.432-.639 1.432-1.432 0-.227-.036-.45-.101-.66"
-                />
-              </svg>
-            </div>
-            <div>
-              <p class="font-medium text-gray-800">{{ activity.title }}</p>
-              <p class="text-sm text-gray-500">{{ activity.user }}</p>
-            </div>
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.101.433-.101.66 0 .793.645 1.432 1.432 1.432h.122c.132 0 .263.013.391.038a2.25 2.25 0 012.012 2.63l-.403 2.816a.75.75 0 01-.743.643H6.75a.75.75 0 01-.743-.643l-.403-2.816a2.25 2.25 0 012.012-2.63c.128-.025.259-.038.391-.038h.122c.787 0 1.432-.639 1.432-1.432 0-.227-.036-.45-.101-.66"
+              />
+            </svg>
           </div>
+          <div>
+            <p class="font-medium text-gray-800">{{ activity.title }}</p>
+            <p class="text-sm text-gray-500">{{ activity.user }}</p>
+          </div>
+        </div>
 
-          <div class="text-sm text-gray-500 font-medium">
-            {{ activity.time }}
-          </div>
+        <div class="text-sm text-gray-500 font-medium">
+          {{ activity.time }}
         </div>
       </div>
     </div>

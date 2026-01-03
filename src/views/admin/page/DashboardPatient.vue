@@ -1,6 +1,5 @@
 <script setup>
 import { ref, onMounted } from "vue";
-import { stats } from "../data/dashboardData.js";
 import { dataService } from "@/services/dataService.js";
 import { useToast } from "@/composables/useToast";
 import Loading from "@/components/common/Loading.vue";
@@ -11,6 +10,7 @@ import ModalAIAnalysis from "../components/ModalAIAnalysis.vue";
 import ModalUploadImage from "../components/ModalUploadImage.vue";
 
 const patientList = ref([]);
+const stats = ref([]);
 const isAddModalOpen = ref(false);
 const isEditModalOpen = ref(false);
 const isDeleteModalOpen = ref(false);
@@ -22,21 +22,26 @@ const errorMessage = ref("");
 
 const toast = useToast();
 
-const fetchPatients = async () => {
+const fetchData = async () => {
   isLoading.value = true;
   try {
-    patientList.value = await dataService.getPatients();
+    const [patientsData, statsData] = await Promise.all([
+      dataService.getPatients(),
+      dataService.getDashboardStats(),
+    ]);
+    patientList.value = patientsData;
+    stats.value = statsData;
   } catch (error) {
-    console.error("Error fetching patients:", error);
-    errorMessage.value = "Failed to load patients.";
-    toast.error("Failed to load patients");
+    console.error("Error fetching data:", error);
+    errorMessage.value = "Failed to load data.";
+    toast.error("Failed to load data");
   } finally {
     isLoading.value = false;
   }
 };
 
 onMounted(() => {
-  fetchPatients();
+  fetchData();
 });
 
 const openAddModal = () => {
@@ -66,7 +71,7 @@ const openUploadModal = (patient) => {
 const handleAddPatient = async (newPatient) => {
   try {
     await dataService.addPatient(newPatient);
-    await fetchPatients();
+    await fetchData();
     isAddModalOpen.value = false;
     toast.success("Patient added successfully");
   } catch (error) {
@@ -86,7 +91,7 @@ const handleEditPatient = async (updatedPatient) => {
       );
     }
 
-    await fetchPatients();
+    await fetchData();
     isEditModalOpen.value = false;
     selectedPatient.value = null;
     toast.success("Patient updated successfully");
@@ -99,7 +104,7 @@ const handleEditPatient = async (updatedPatient) => {
 const handleUploadImage = async (file) => {
   try {
     await dataService.uploadMedicalRecord(selectedPatient.value.id, file);
-    await fetchPatients();
+    await fetchData();
     isUploadModalOpen.value = false;
     selectedPatient.value = null;
     toast.success("Image uploaded successfully");
@@ -116,7 +121,7 @@ const handleUploadImage = async (file) => {
 const handleDeletePatient = async () => {
   try {
     await dataService.deletePatient(selectedPatient.value.id);
-    await fetchPatients();
+    await fetchData();
     isDeleteModalOpen.value = false;
     selectedPatient.value = null;
     toast.success("Patient deleted successfully");

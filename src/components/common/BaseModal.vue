@@ -5,6 +5,14 @@ defineProps({
     maxWidth: {
         type: String,
         default: 'max-w-md'
+    },
+    showCloseButton: {
+        type: Boolean,
+        default: true
+    },
+    centerTitle: {
+        type: Boolean,
+        default: false
     }
 })
 
@@ -18,11 +26,12 @@ defineEmits(['close'])
         <div v-if="isOpen"
             class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overflow-x-hidden p-4 backdrop-blur-sm bg-black/30"
             @click.self="$emit('close')">
-            <div class="relative w-full bg-white rounded-xl shadow-2xl p-6 transition-all" :class="maxWidth">
+            <div class="relative w-full bg-white rounded-xl shadow-2xl pt-6 px-6 pb-4 transition-all" :class="maxWidth">
                 <!-- Header -->
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-xl font-bold text-gray-800">{{ title }}</h3>
-                    <button @click="$emit('close')"
+                <div class="flex items-center justify-between mb-8">
+                    <h3 class="text-xl font-bold text-gray-800" :class="centerTitle ? 'w-full text-center' : ''">{{
+                        title }}</h3>
+                    <button v-if="showCloseButton" @click="$emit('close')"
                         class="text-gray-400 hover:text-gray-600 transition-colors bg-gray-100 hover:bg-gray-200 rounded-full p-1">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
                             stroke="currentColor" class="w-5 h-5">
@@ -32,7 +41,7 @@ defineEmits(['close'])
                 </div>
 
                 <!-- Body -->
-                <div class="mb-6">
+                <div class="mb-1">
                     <slot></slot>
                 </div>
 
