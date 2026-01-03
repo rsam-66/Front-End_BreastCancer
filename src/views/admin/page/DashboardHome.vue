@@ -15,15 +15,21 @@ const isLoading = ref(true);
 
 const fetchData = async () => {
   isLoading.value = true;
+
+  // Fetch Stats
   try {
-    const [statsData, activitiesData] = await Promise.all([
-      dataService.getDashboardStats(),
-      dataService.getActivities(),
-    ]);
+    const statsData = await dataService.getDashboardStats();
     stats.value = statsData;
+  } catch (error) {
+    console.error("Failed to fetch dashboard stats:", error);
+  }
+
+  // Fetch Activities
+  try {
+    const activitiesData = await dataService.getActivities();
     activities.value = activitiesData;
   } catch (error) {
-    console.error("Failed to fetch dashboard data:", error);
+    console.error("Failed to fetch activities:", error);
   } finally {
     isLoading.value = false;
   }
