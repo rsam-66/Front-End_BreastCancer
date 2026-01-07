@@ -1,9 +1,11 @@
 import './style.css'
 import { createApp } from 'vue'
 import App from './App.vue'
-import router from './router' // Imports your index.js from the router folder
+import router from './router'
+import VueKonva from 'vue-konva' // Import VueKonva
 
 const app = createApp(App)
 
-app.use(router) // <--- This line is critical!
+app.use(router)
+app.use(VueKonva) // <--- Register VueKonva
 app.mount('#app')
