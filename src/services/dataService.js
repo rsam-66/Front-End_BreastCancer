@@ -445,18 +445,30 @@ export const dataService = {
         : null;
 
     let imageUrl = null;
-    if (latestRecord && latestRecord.original_image_path) {
-      imageUrl = getPublicImageUrl(
-        latestRecord.original_image_path,
-        "breast-cancer-images"
-      );
+    let aiGradCamUrl = null;
+
+    if (latestRecord) {
+      if (latestRecord.original_image_path) {
+        imageUrl = getPublicImageUrl(
+          latestRecord.original_image_path,
+          "breast-cancer-images"
+        );
+      }
+      if (latestRecord.ai_gradcam_path) {
+        aiGradCamUrl = getPublicImageUrl(
+          latestRecord.ai_gradcam_path,
+          "breast-cancer-images"
+        );
+      }
     }
 
     return {
       ...data,
       image: imageUrl, // for UI display
+      aiGradCamImage: aiGradCamUrl, // AI Result
       latestRecord: latestRecord, // for review data
     };
+
   },
 
   async saveDoctorReview(recordId, { agreement, note }) {
