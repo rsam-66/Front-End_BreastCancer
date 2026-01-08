@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
 import { getPublicImageUrl } from "./storageService";
+import { aiService } from "./aiService";
 
 const createAuthUser = async (email, password, metadata) => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -148,7 +149,8 @@ export const dataService = {
         medical_records (
           original_image_path,
           validation_status,
-          doctor_diagnosis
+          doctor_diagnosis,
+          ai_diagnosis
         )
       `
       )
@@ -330,6 +332,27 @@ export const dataService = {
       throw uploadError;
     }
 
+    // --- 2. Call AI Service ---
+    let aiDiagnosis = "Pending";
+    let aiConfidence = 0;
+
+    try {
+      const aiResult = await aiService.predict(file);
+      // Format: "Benign (98.5%)"
+      const percentage = (aiResult.confidence * 100).toFixed(1);
+      aiDiagnosis = `${aiResult.class} (${percentage}%)`;
+      aiConfidence = aiResult.confidence;
+
+      await logActivity(
+        "AI_ANALYSIS",
+        `AI Analysis for patient ${patientId}: ${aiDiagnosis}`
+      );
+    } catch (aiError) {
+      console.error("AI Service Failed, but image uploaded:", aiError);
+      aiDiagnosis = "Analysis Failed";
+    }
+
+    // --- 3. Save to Database ---
     const { data, error: dbError } = await supabase
       .from("medical_records")
       .insert([
@@ -338,6 +361,10 @@ export const dataService = {
           original_image_path: filePath,
           validation_status: "PENDING",
           uploaded_at: new Date().toISOString(),
+          ai_diagnosis: aiDiagnosis,
+          // Note: Assuming 'ai_diagnosis' column exists.
+          // If you have a separate 'ai_confidence' column, add it here:
+          // ai_confidence: aiConfidence
         },
       ])
       .select();
@@ -450,6 +477,60 @@ export const dataService = {
 
     await logActivity("DOCTOR_REVIEW", `Doctor reviewed record ${recordId}`);
 
+    return data[0];
+  },
+
+  async reAnalyzePatient(patientId) {
+    // 1. Get Patient & Latest Record
+    const patient = await this.getPatientById(patientId);
+    if (!patient.latestRecord || !patient.latestRecord.original_image_path) {
+      throw new Error("No image found for this patient.");
+    }
+
+    const imagePath = patient.latestRecord.original_image_path;
+
+    // 2. Download Image from Storage
+    const { data: fileBlob, error: downloadError } = await supabase.storage
+      .from("breast-cancer-images")
+      .download(imagePath);
+
+    if (downloadError) throw downloadError;
+
+    // 3. Create File object (AI Service expects File/Blob)
+    const file = new File([fileBlob], imagePath.split("/").pop(), {
+      type: fileBlob.type,
+    });
+
+    // 4. Call AI Service
+    let aiDiagnosis = "Analysis Failed";
+    // let aiConfidence = 0;
+
+    try {
+      const aiResult = await aiService.predict(file);
+      const percentage = (aiResult.confidence * 100).toFixed(1);
+      aiDiagnosis = `${aiResult.class} (${percentage}%)`;
+      // aiConfidence = aiResult.confidence;
+
+      await logActivity(
+        "AI_REANALYSIS",
+        `AI Re-Analysis for patient ${patientId}: ${aiDiagnosis}`
+      );
+    } catch (aiError) {
+      console.error("AI Re-Analysis Failed:", aiError);
+      throw aiError;
+    }
+
+    // 5. Update Record
+    const { data, error } = await supabase
+      .from("medical_records")
+      .update({
+        ai_diagnosis: aiDiagnosis,
+        uploaded_at: new Date().toISOString(), // Touch update time
+      })
+      .eq("id", patient.latestRecord.id)
+      .select();
+
+    if (error) throw error;
     return data[0];
   },
 
