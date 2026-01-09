@@ -67,13 +67,37 @@ const openUploadModal = (patient) => {
 
 const handleAddPatient = async (newPatient) => {
   try {
-    await dataService.addPatient(newPatient);
-    await fetchPatients();
-    isAddModalOpen.value = false;
-    toast.success("Patient added successfully");
+    const createdPatient = await dataService.addPatient(newPatient);
+
+    if (newPatient.rawFile && createdPatient?.id) {
+      isAddModalOpen.value = false;
+      isAnalyzing.value = true;
+
+      await dataService.uploadMedicalRecord(
+        createdPatient.id,
+        newPatient.rawFile
+      );
+      await fetchPatients();
+
+      const freshPatient = patientList.value.find(
+        (p) => p.id === createdPatient.id
+      );
+      if (freshPatient) {
+        selectedPatient.value = freshPatient;
+        isAIModalOpen.value = true;
+      }
+
+      toast.success("Patient added & Image Analyzed!");
+    } else {
+      await fetchPatients();
+      isAddModalOpen.value = false;
+      toast.success("Patient added successfully");
+    }
   } catch (error) {
     console.error("Failed to add patient:", error);
     toast.error("Failed to add patient");
+  } finally {
+    isAnalyzing.value = false;
   }
 };
 
@@ -89,14 +113,24 @@ const handleEditPatient = async (updatedPatient) => {
         selectedPatient.value.id,
         updatedPatient.rawFile
       );
+
+      await fetchPatients();
+
+      const freshPatient = patientList.value.find(
+        (p) => p.id === selectedPatient.value.id
+      );
+      if (freshPatient) {
+        selectedPatient.value = freshPatient;
+        isAIModalOpen.value = true;
+      }
+
       toast.success("Patient updated & Image Analyzed!");
     } else {
       isEditModalOpen.value = false;
       selectedPatient.value = null;
+      await fetchPatients();
       toast.success("Patient updated successfully");
     }
-
-    await fetchPatients();
   } catch (error) {
     console.error("Failed to update patient:", error);
     toast.error("Failed to update patient");
@@ -106,12 +140,21 @@ const handleEditPatient = async (updatedPatient) => {
 };
 
 const handleUploadImage = async (file) => {
+  const currentId = selectedPatient.value.id;
   isUploadModalOpen.value = false;
   isAnalyzing.value = true;
   try {
-    await dataService.uploadMedicalRecord(selectedPatient.value.id, file);
+    await dataService.uploadMedicalRecord(currentId, file);
     await fetchPatients();
-    selectedPatient.value = null;
+
+    const freshPatient = patientList.value.find((p) => p.id === currentId);
+    if (freshPatient) {
+      selectedPatient.value = freshPatient;
+      isAIModalOpen.value = true;
+    } else {
+      selectedPatient.value = null;
+    }
+
     toast.success("Image uploaded & Analysis complete!");
   } catch (error) {
     console.error("Failed to upload image:", error);
@@ -120,6 +163,7 @@ const handleUploadImage = async (file) => {
         error.message || error.error_description || "Unknown error"
       }`
     );
+    selectedPatient.value = null;
   } finally {
     isAnalyzing.value = false;
   }
@@ -137,22 +181,31 @@ const handleDeletePatient = async () => {
     toast.error("Failed to delete patient");
   }
 };
+
 const handleReAnalysis = async () => {
   if (!selectedPatient.value) return;
 
+  const currentId = selectedPatient.value.id;
   isAIModalOpen.value = false;
   isAnalyzing.value = true;
 
   try {
-    await dataService.reAnalyzePatient(selectedPatient.value.id);
+    await dataService.reAnalyzePatient(currentId);
     await fetchPatients();
+
+    const freshPatient = patientList.value.find((p) => p.id === currentId);
+    if (freshPatient) {
+      selectedPatient.value = freshPatient;
+      isAIModalOpen.value = true;
+    }
+
     toast.success("Re-Analysis Complete!");
   } catch (error) {
     console.error("Re-analysis failed:", error);
     toast.error("Re-analysis failed.");
+    selectedPatient.value = null;
   } finally {
     isAnalyzing.value = false;
-    selectedPatient.value = null;
   }
 };
 </script>

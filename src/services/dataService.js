@@ -1,7 +1,19 @@
 import { createClient } from "@supabase/supabase-js";
-import { supabase } from "../lib/supabaseClient";
+import { supabase, supabaseAdmin } from "../lib/supabaseClient";
 import { getPublicImageUrl } from "./storageService";
 import { aiService } from "./aiService";
+
+const getAuthUidByEmail = async (email) => {
+  if (!supabaseAdmin) return null;
+  const {
+    data: { users },
+    error,
+  } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 100 });
+  if (error || !users) return null;
+  const found = users.find((u) => u.email === email);
+  console.log("Found auth user:", found?.id);
+  return found ? found.id : null;
+};
 
 const createAuthUser = async (email, password, metadata) => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -105,6 +117,52 @@ export const dataService = {
   async updateDoctor(id, updates) {
     const { password, ...updateData } = updates;
 
+    if (supabaseAdmin) {
+      try {
+        const { data: currentDoctor } = await supabase
+          .from("users")
+          .select("email")
+          .eq("id", id)
+          .single();
+
+        if (currentDoctor && currentDoctor.email) {
+          const uid = await getAuthUidByEmail(currentDoctor.email);
+          if (uid) {
+            const authUpdates = {};
+            if (updates.email && updates.email !== currentDoctor.email) {
+              authUpdates.email = updates.email;
+            }
+            if (password && password.trim() !== "") {
+              authUpdates.password = password;
+            }
+            if (updates.name || updates.status) {
+              authUpdates.user_metadata = {};
+              if (updates.name) authUpdates.user_metadata.name = updates.name;
+              if (updates.status)
+                authUpdates.user_metadata.status = updates.status;
+            }
+
+            if (Object.keys(authUpdates).length > 0) {
+              console.log("Updating Auth User:", authUpdates);
+              const { error: authError } =
+                await supabaseAdmin.auth.admin.updateUserById(uid, authUpdates);
+              if (authError) {
+                console.error("Failed to update Auth user:", authError);
+              }
+            }
+          } else {
+            console.warn(
+              "Auth UID not found for email:",
+              currentDoctor.email,
+              "- Skipping Auth Update"
+            );
+          }
+        }
+      } catch (e) {
+        console.error("Error syncing with Supabase Auth:", e);
+      }
+    }
+
     const { data, error } = await supabase
       .from("users")
       .update(updateData)
@@ -119,7 +177,30 @@ export const dataService = {
   },
 
   async deleteDoctor(id) {
-    // 1. Update activity_logs to set user_id to NULL to avoid FK violation
+    if (supabaseAdmin) {
+      try {
+        const { data: currentDoctor } = await supabase
+          .from("users")
+          .select("email")
+          .eq("id", id)
+          .single();
+
+        if (currentDoctor && currentDoctor.email) {
+          const uid = await getAuthUidByEmail(currentDoctor.email);
+          if (uid) {
+            console.log("Deleting Auth User:", uid);
+            const { error: authError } =
+              await supabaseAdmin.auth.admin.deleteUser(uid);
+            if (authError) {
+              console.error("Failed to delete Auth user:", authError);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error deleting Supabase Auth user:", e);
+      }
+    }
+
     const { error: logError } = await supabase
       .from("activity_logs")
       .update({ user_id: null })
@@ -130,7 +211,6 @@ export const dataService = {
       throw new Error("Failed to unlink activity logs before deleting doctor");
     }
 
-    // 2. Now delete the doctor
     const { error } = await supabase.from("users").delete().eq("id", id);
 
     if (error) throw error;
@@ -147,10 +227,12 @@ export const dataService = {
         `
         *,
         medical_records (
+          id,
           original_image_path,
           validation_status,
           doctor_diagnosis,
-          ai_diagnosis
+          ai_diagnosis,
+          uploaded_at
         )
       `
       )
@@ -332,27 +414,64 @@ export const dataService = {
       throw uploadError;
     }
 
-    // --- 2. Call AI Service ---
     let aiDiagnosis = "Pending";
-    let aiConfidence = 0;
+    let aiGradCamPath = null;
 
     try {
       const aiResult = await aiService.predict(file);
-      // Format: "Benign (98.5%)"
+      aiDiagnosis = JSON.stringify(aiResult);
+
+      if (aiResult.gradcam_path) {
+        try {
+          console.log(
+            "Found GradCAM path in AI result:",
+            aiResult.gradcam_path
+          );
+          const filename = aiResult.gradcam_path.split(/[\\/]/).pop();
+          const encodedFilename = encodeURIComponent(filename);
+          const gradCamUrl = `http://localhost:8000/gambar_api/${encodedFilename}`;
+          console.log("Fetching GradCAM from:", gradCamUrl);
+
+          const res = await fetch(gradCamUrl);
+          if (!res.ok)
+            throw new Error(`Failed to fetch GradCAM: ${res.statusText}`);
+          const blob = await res.blob();
+          console.log("Fetched GradCAM blob:", blob.size, blob.type);
+
+          const gradCamStoragePath = `gradcam/${filename}`;
+          const { error: gcUploadError } = await supabase.storage
+            .from("breast-cancer-images")
+            .upload(gradCamStoragePath, blob, {
+              upsert: true,
+              contentType: "image/png",
+            });
+
+          if (!gcUploadError) {
+            console.log(
+              "Successfully uploaded GradCAM to Supabase:",
+              gradCamStoragePath
+            );
+            aiGradCamPath = gradCamStoragePath;
+          } else {
+            console.error("Supabase GradCAM Upload Error:", gcUploadError);
+          }
+        } catch (gcErr) {
+          console.error("Failed to upload GradCAM to Supabase:", gcErr);
+        }
+      }
+
       const percentage = (aiResult.confidence * 100).toFixed(1);
-      aiDiagnosis = `${aiResult.class} (${percentage}%)`;
-      aiConfidence = aiResult.confidence;
+      const readableDiagnosis = `${aiResult.class} (${percentage}%)`;
 
       await logActivity(
         "AI_ANALYSIS",
-        `AI Analysis for patient ${patientId}: ${aiDiagnosis}`
+        `AI Analysis for patient ${patientId}: ${readableDiagnosis}`
       );
     } catch (aiError) {
       console.error("AI Service Failed, but image uploaded:", aiError);
       aiDiagnosis = "Analysis Failed";
     }
 
-    // --- 3. Save to Database ---
     const { data, error: dbError } = await supabase
       .from("medical_records")
       .insert([
@@ -362,9 +481,7 @@ export const dataService = {
           validation_status: "PENDING",
           uploaded_at: new Date().toISOString(),
           ai_diagnosis: aiDiagnosis,
-          // Note: Assuming 'ai_diagnosis' column exists.
-          // If you have a separate 'ai_confidence' column, add it here:
-          // ai_confidence: aiConfidence
+          ai_gradcam_path: aiGradCamPath,
         },
       ])
       .select();
@@ -387,14 +504,12 @@ export const dataService = {
   },
 
   async changePassword(currentPassword, newPassword) {
-    // 1. Get current user
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
     if (!user) throw new Error("not_authenticated");
 
-    // 2. Re-authenticate to verify current password
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: user.email,
       password: currentPassword,
@@ -404,7 +519,6 @@ export const dataService = {
       throw new Error("incorrect_password");
     }
 
-    // 3. Update password
     const { error: updateError } = await supabase.auth.updateUser({
       password: newPassword,
     });
@@ -429,7 +543,9 @@ export const dataService = {
           ai_diagnosis,
           doctor_diagnosis,
           doctor_notes,
-          uploaded_at
+          uploaded_at,
+          ai_gradcam_path,
+          doctor_brush_path
         )
       `
       )
@@ -438,7 +554,6 @@ export const dataService = {
 
     if (error) throw error;
 
-    // Get latest record
     const latestRecord =
       data.medical_records && data.medical_records.length > 0
         ? data.medical_records[data.medical_records.length - 1]
@@ -446,6 +561,7 @@ export const dataService = {
 
     let imageUrl = null;
     let aiGradCamUrl = null;
+    let doctorBrushUrl = null;
 
     if (latestRecord) {
       if (latestRecord.original_image_path) {
@@ -460,40 +576,105 @@ export const dataService = {
           "breast-cancer-images"
         );
       }
+      if (latestRecord.doctor_brush_path) {
+        doctorBrushUrl = getPublicImageUrl(
+          latestRecord.doctor_brush_path,
+          "breast-cancer-images"
+        );
+      }
     }
 
     return {
       ...data,
-      image: imageUrl, // for UI display
-      aiGradCamImage: aiGradCamUrl, // AI Result
-      latestRecord: latestRecord, // for review data
+      image: imageUrl,
+      aiGradCamImage: aiGradCamUrl,
+      doctorBrushImage: doctorBrushUrl,
+      latestRecord: latestRecord,
     };
-
   },
 
-  async saveDoctorReview(recordId, { agreement, note }) {
-    const updates = {
+  async saveDoctorReview(originalRecordId, { agreement, note, heatmapImage }) {
+    const { data: originalRecord, error: fetchError } = await supabase
+      .from("medical_records")
+      .select("*")
+      .eq("id", originalRecordId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    let validatorId = null;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.user?.email) {
+      const { data: user } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", session.user.email)
+        .single();
+      if (user) validatorId = user.id;
+    }
+
+    let doctorBrushPath = null;
+
+    if (heatmapImage) {
+      try {
+        const res = await fetch(heatmapImage);
+        const blob = await res.blob();
+
+        const fileName = `${
+          originalRecord.patient_id
+        }_review_${Date.now()}.png`;
+        const filePath = `masks/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("breast-cancer-images")
+          .upload(filePath, blob, { upsert: true });
+
+        if (!uploadError) {
+          doctorBrushPath = filePath;
+        }
+      } catch (e) {
+        console.error("Failed to upload doctor mask:", e);
+      }
+    }
+
+    const newRecord = {
+      patient_id: originalRecord.patient_id,
+      original_image_path: originalRecord.original_image_path,
+      ai_diagnosis: originalRecord.ai_diagnosis,
+      ai_gradcam_path: originalRecord.ai_gradcam_path,
+      ai_confidence: originalRecord.ai_confidence,
+
+      validator_id: validatorId,
+
       doctor_notes: note,
-      validation_status: "Done",
+      doctor_brush_path: doctorBrushPath,
+      validation_status: "VALIDATED",
+      validated_at: new Date().toISOString(),
+      is_ai_accurate: agreement === "agree",
       doctor_diagnosis:
         agreement === "agree" ? "Agreed with AI" : "Disagreed with AI",
+
+      uploaded_at: new Date().toISOString(),
     };
 
     const { data, error } = await supabase
       .from("medical_records")
-      .update(updates)
-      .eq("id", recordId)
+      .insert([newRecord])
       .select();
 
     if (error) throw error;
 
-    await logActivity("DOCTOR_REVIEW", `Doctor reviewed record ${recordId}`);
+    await logActivity(
+      "DOCTOR_REVIEW",
+      `Doctor submitted review (New Record) for patient ${originalRecord.patient_id}`
+    );
 
     return data[0];
   },
 
   async reAnalyzePatient(patientId) {
-    // 1. Get Patient & Latest Record
     const patient = await this.getPatientById(patientId);
     if (!patient.latestRecord || !patient.latestRecord.original_image_path) {
       throw new Error("No image found for this patient.");
@@ -501,44 +682,91 @@ export const dataService = {
 
     const imagePath = patient.latestRecord.original_image_path;
 
-    // 2. Download Image from Storage
     const { data: fileBlob, error: downloadError } = await supabase.storage
       .from("breast-cancer-images")
       .download(imagePath);
 
     if (downloadError) throw downloadError;
 
-    // 3. Create File object (AI Service expects File/Blob)
     const file = new File([fileBlob], imagePath.split("/").pop(), {
       type: fileBlob.type,
     });
-
-    // 4. Call AI Service
     let aiDiagnosis = "Analysis Failed";
-    // let aiConfidence = 0;
+    let aiGradCamPath = null;
 
     try {
       const aiResult = await aiService.predict(file);
+      aiDiagnosis = JSON.stringify(aiResult);
+
+      if (aiResult.gradcam_path) {
+        try {
+          console.log(
+            "Re-Analysis: Found GradCAM path in AI result:",
+            aiResult.gradcam_path
+          );
+          const filename = aiResult.gradcam_path.split(/[\\/]/).pop();
+          const encodedFilename = encodeURIComponent(filename);
+          const gradCamUrl = `http://localhost:8000/gambar_api/${encodedFilename}`;
+          console.log("Re-Analysis: Fetching GradCAM from:", gradCamUrl);
+          const res = await fetch(gradCamUrl);
+          if (!res.ok)
+            throw new Error(`Failed to fetch GradCAM: ${res.statusText}`);
+          const blob = await res.blob();
+          console.log(
+            "Re-Analysis: Fetched GradCAM blob:",
+            blob.size,
+            blob.type
+          );
+
+          const gradCamStoragePath = `gradcam/${filename}`;
+          const { error: gcUploadError } = await supabase.storage
+            .from("breast-cancer-images")
+            .upload(gradCamStoragePath, blob, {
+              upsert: true,
+              contentType: "image/png",
+            });
+
+          if (!gcUploadError) {
+            console.log(
+              "Re-Analysis: Successfully uploaded GradCAM to Supabase:",
+              gradCamStoragePath
+            );
+            aiGradCamPath = gradCamStoragePath;
+          } else {
+            console.error(
+              "Re-Analysis: Supabase GradCAM Upload Error:",
+              gcUploadError
+            );
+          }
+        } catch (gcErr) {
+          console.error("Re-Analysis: Failed to upload GradCAM:", gcErr);
+        }
+      }
+
       const percentage = (aiResult.confidence * 100).toFixed(1);
-      aiDiagnosis = `${aiResult.class} (${percentage}%)`;
-      // aiConfidence = aiResult.confidence;
+      const readableDiagnosis = `${aiResult.class} (${percentage}%)`;
 
       await logActivity(
         "AI_REANALYSIS",
-        `AI Re-Analysis for patient ${patientId}: ${aiDiagnosis}`
+        `AI Re-Analysis for patient ${patientId}: ${readableDiagnosis}`
       );
     } catch (aiError) {
       console.error("AI Re-Analysis Failed:", aiError);
       throw aiError;
     }
 
-    // 5. Update Record
+    const updates = {
+      ai_diagnosis: aiDiagnosis,
+      uploaded_at: new Date().toISOString(),
+    };
+
+    if (aiGradCamPath) {
+      updates.ai_gradcam_path = aiGradCamPath;
+    }
+
     const { data, error } = await supabase
       .from("medical_records")
-      .update({
-        ai_diagnosis: aiDiagnosis,
-        uploaded_at: new Date().toISOString(), // Touch update time
-      })
+      .update(updates)
       .eq("id", patient.latestRecord.id)
       .select();
 

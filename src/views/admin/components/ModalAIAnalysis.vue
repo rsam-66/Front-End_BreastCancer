@@ -31,6 +31,33 @@ const aiData = computed(() => {
   if (!record.ai_diagnosis)
     return { diagnosis: "Processing...", confidence: 0, text: "Processing" };
 
+  try {
+    let parsed = record.ai_diagnosis;
+    if (
+      typeof parsed === "string" &&
+      (parsed.startsWith("{") || parsed.startsWith("["))
+    ) {
+      parsed = JSON.parse(parsed);
+    }
+
+    if (parsed && typeof parsed === "object" && parsed.class) {
+      return {
+        diagnosis: parsed.class.charAt(0).toUpperCase() + parsed.class.slice(1),
+        confidence:
+          parsed.confidence && parsed.confidence <= 1
+            ? (parsed.confidence * 100).toFixed(1)
+            : parsed.confidence || 0,
+        text:
+          typeof record.ai_diagnosis === "string"
+            ? record.ai_diagnosis
+            : JSON.stringify(record.ai_diagnosis),
+        timestamp: parsed.timestamp || null,
+        analysis_id: parsed.analysis_id || null,
+      };
+    }
+  } catch (e) {
+  }
+
   const match = record.ai_diagnosis.match(
     /^(.*?)\s*[\(\[]?(\d+\.?\d*)%?[\)\]]?$/
   );
@@ -40,6 +67,8 @@ const aiData = computed(() => {
       diagnosis: match[1].trim(),
       confidence: parseFloat(match[2]),
       text: record.ai_diagnosis,
+      timestamp: null,
+      analysis_id: null,
     };
   }
 
@@ -47,6 +76,8 @@ const aiData = computed(() => {
     diagnosis: record.ai_diagnosis,
     confidence: 0,
     text: record.ai_diagnosis,
+    timestamp: null,
+    analysis_id: null,
   };
 });
 
@@ -137,6 +168,23 @@ watch(
               :style="{ width: aiData.confidence + '%' }"
             ></div>
           </div>
+
+          <div
+            class="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-500"
+            v-if="aiData.analysis_id || aiData.timestamp"
+          >
+            <div v-if="aiData.analysis_id" class="flex justify-between">
+              <span>Analysis ID:</span>
+              <span class="font-mono"
+                >{{ aiData.analysis_id.substring(0, 8) }}...</span
+              >
+            </div>
+            <div v-if="aiData.timestamp" class="flex justify-between mt-1">
+              <span>Time:</span>
+              <span>{{ new Date(aiData.timestamp).toLocaleString() }}</span>
+            </div>
+          </div>
+
           <p class="pt-2 text-xs italic">
             *This is an AI-generated analysis. Please consult with a specialist
             for final diagnosis.
