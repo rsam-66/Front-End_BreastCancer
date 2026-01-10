@@ -1,8 +1,9 @@
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 
 const props = defineProps({
   baseImageSrc: String,
+  gradCamSrc: String, // New prop for AI Result
   brushType: { type: String, default: 'normal' },
   brushSize: { type: Number, default: 1 },
   viewMode: { type: String, default: 'raw' }
@@ -12,137 +13,173 @@ const emit = defineEmits(['update:drawings']);
 
 const width = 400;
 const height = 400;
-const CELL_SIZE = 8;
 const stageConfig = { width, height };
 
-const isDrawing = ref(false);
-const baseImageObj = ref(null);
+// REFS
 const stageRef = ref(null);
+const baseImageObj = ref(null);
+const maskImageObj = ref(null); // This displays the editable mask on the Konva stage
+const gradCamOverlayObj = ref(null); // Fallback visual layer if pixel processing fails
+const debugStatus = ref("Waiting for AI...");
 
-const gridData = ref(new Map());
+// NATIVE CANVAS FOR MASKING
+let maskCanvas = null;
+let maskCtx = null;
+
+const isDrawing = ref(false);
+const isTainted = ref(false);
 
 const brushColors = {
   normal: '#00FF00',
   benign: '#FFC107',
   malignant: '#FF0000',
-  erase: null
+  erase: 'destination-out'
 };
 
-let lastObjectUrl = null;
-const isTainted = ref(false);
+const initMaskCanvas = () => {
+  maskCanvas = document.createElement('canvas');
+  maskCanvas.width = width;
+  maskCanvas.height = height;
+  maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
 
-const loadImage = async (src) => {
+  // Create a Konva-compatible image wrapper for this canvas
+  const img = new Image();
+  img.src = maskCanvas.toDataURL();
+  maskImageObj.value = img;
+};
+
+// 1. LOAD BASE IMAGE
+const loadImage = (src) => {
   if (!src) return;
   isTainted.value = false;
-
-  const loadViaBlob = async () => {
-    const response = await fetch(src, { mode: 'cors' });
-    if (!response.ok) throw new Error('Network response was not ok');
-    const blob = await response.blob();
-    if (lastObjectUrl) URL.revokeObjectURL(lastObjectUrl);
-    lastObjectUrl = URL.createObjectURL(blob);
-    return lastObjectUrl;
-  };
-
-  const setImgSrc = (url, useCrossOrigin) => {
-    const img = new Image();
-    if (useCrossOrigin) img.crossOrigin = "Anonymous";
-    img.onload = () => { baseImageObj.value = img; };
-    img.onerror = () => {
-      if (useCrossOrigin) {
-        console.warn("CORS load failed, displaying tainted image.");
-        setImgSrc(src, false);
-        isTainted.value = true;
-      } else {
-        console.error("Failed to load image even in tainted mode:", src);
-      }
+  const img = new Image();
+  img.crossOrigin = "Anonymous";
+  img.onload = () => { baseImageObj.value = img; };
+  img.onerror = () => {
+    // Fallback if CORS fails (tainted mode)
+    const taintedImg = new Image();
+    taintedImg.onload = () => {
+      baseImageObj.value = taintedImg;
+      isTainted.value = true;
     };
-    img.src = url;
+    taintedImg.src = src;
+  };
+  img.src = src;
+};
+
+// 2. IMPORT AI GRADCAM LOGIC
+const processGradCam = (src) => {
+  console.log("processGradCam triggered with:", src);
+  if (!src) return;
+
+  // Reset state
+  gradCamOverlayObj.value = null;
+
+  const img = new Image();
+  img.crossOrigin = "Anonymous";
+
+  img.onload = () => {
+    console.log("GradCAM Image Loaded. Copying full heatmap...");
+    try {
+      if (!maskCtx) return;
+
+      // CLEAR existing content first (optional, but good for cleanliness)
+      maskCtx.clearRect(0, 0, width, height);
+
+      // DRAW EXACT COPY (No filtering)
+      // This preserves Blue, Red, Holes, and Gradients perfectly.
+      maskCtx.drawImage(img, 0, 0, width, height);
+
+      // For editing, we might want to make the "Black" pixels transparent?
+      // Usually GradCAM has black borders. Let's do a quick pass just for pure black/white background removal if needed
+      // But user asked for "Full Blue", so we keep it as is.
+      // Transparency is handled by the v-image opacity in the template.
+
+      updateKonvaVisual();
+
+    } catch (e) {
+      console.error("Heatmap copy failed:", e);
+      fallbackLoad(src);
+    }
   };
 
-  try {
-    const blobUrl = await loadViaBlob();
-    setImgSrc(blobUrl, false);
-  } catch (err) {
-    console.warn("Blob load failed, falling back to standard load:", err);
-    setImgSrc(src, true);
-  }
+  img.onerror = (err) => {
+    console.warn("CORS Load Failed. Switching to Fallback.", err);
+    fallbackLoad(src);
+  };
+
+  img.src = src;
 };
 
-watch(() => props.baseImageSrc, (newSrc) => {
-  loadImage(newSrc);
-  gridData.value.clear();
-}, { immediate: true });
+// Fallback: Load image without CORS and display as a passive underlay
+const fallbackLoad = (src) => {
+  const img = new Image();
+  // No crossOrigin set
+  img.onload = () => {
+    gradCamOverlayObj.value = img;
+  };
+  img.onerror = () => {
+    // Fallback failed to load
+  };
+  img.src = src;
+}
 
-const getGridCoord = (stageX, stageY) => {
-  const col = Math.floor(stageX / CELL_SIZE);
-  const row = Math.floor(stageY / CELL_SIZE);
-  return { col, row };
+const updateKonvaVisual = () => {
+  if (!maskCanvas) return;
+  const newImg = new Image();
+  newImg.src = maskCanvas.toDataURL();
+  newImg.onload = () => {
+    maskImageObj.value = newImg;
+  };
 };
 
-const paintCell = (stageX, stageY) => {
-  const { col: centerCol, row: centerRow } = getGridCoord(stageX, stageY);
-  const color = brushColors[props.brushType];
-  const radius = Math.max(0, props.brushSize - 0.5);
-
-  const rCeil = Math.ceil(radius);
-
-  for (let y = -rCeil; y <= rCeil; y++) {
-    for (let x = -rCeil; x <= rCeil; x++) {
-      if (x * x + y * y <= radius * radius + 0.5) {
-        const targetCol = centerCol + x;
-        const targetRow = centerRow + y;
-        if (targetCol >= 0 && targetCol < (width / CELL_SIZE) &&
-          targetRow >= 0 && targetRow < (height / CELL_SIZE)) {
-
-          const key = `${targetCol},${targetRow}`;
-          if (props.brushType === 'erase') {
-            gridData.value.delete(key);
-          } else if (color) {
-            gridData.value.set(key, color);
-          }
-        }
-      }
-    }
-  }
-
-  gridData.value = new Map(gridData.value);
+// 3. DRAWING HANDLERS
+const getPointerPos = (e) => {
+  const stage = e.target.getStage();
+  const pos = stage.getPointerPosition();
+  return pos;
 };
 
 const handleMouseDown = (e) => {
   isDrawing.value = true;
-  const pos = e.target.getStage().getPointerPosition();
-  paintCell(pos.x, pos.y);
+  const pos = getPointerPos(e);
+
+  maskCtx.beginPath();
+  maskCtx.moveTo(pos.x, pos.y);
+
+  // Setup Brush
+  const mode = props.brushType === 'erase' ? 'destination-out' : 'source-over';
+  maskCtx.globalCompositeOperation = mode;
+  maskCtx.lineCap = 'round';
+  maskCtx.lineJoin = 'round';
+  maskCtx.lineWidth = props.brushSize * 5;
+
+  if (props.brushType !== 'erase') {
+    maskCtx.strokeStyle = brushColors[props.brushType];
+  }
+
+  maskCtx.lineTo(pos.x + 0.01, pos.y);
+  maskCtx.stroke();
+
+  updateKonvaVisual();
 };
 
 const handleMouseMove = (e) => {
   if (!isDrawing.value) return;
-  const pos = e.target.getStage().getPointerPosition();
-  paintCell(pos.x, pos.y);
+  const pos = getPointerPos(e);
+
+  maskCtx.lineTo(pos.x, pos.y);
+  maskCtx.stroke();
+  updateKonvaVisual();
 };
 
 const handleMouseUp = () => {
   isDrawing.value = false;
-  const drawings = Array.from(gridData.value.entries()).map(([key, color]) => ({ key, color }));
-  emit('update:drawings', drawings);
+  maskCtx.closePath();
+  emit('update:drawings', 'updated');
 };
-const gridRects = computed(() => {
-  const rects = [];
-  const cellSize = CELL_SIZE;
 
-  for (const [key, color] of gridData.value.entries()) {
-    const [col, row] = key.split(',').map(Number);
-    rects.push({
-      x: col * cellSize,
-      y: row * cellSize,
-      width: cellSize,
-      height: cellSize,
-      fill: color
-    });
-  }
-  return rects;
-});
-
+// 4. EXPORT
 const getStageDataURL = () => {
   if (stageRef.value && stageRef.value.getStage()) {
     return stageRef.value.getStage().toDataURL({ pixelRatio: 2 });
@@ -150,10 +187,30 @@ const getStageDataURL = () => {
   return null;
 };
 
-defineExpose({
-  getStageDataURL,
-  isTainted
+defineExpose({ getStageDataURL, isTainted });
+
+onMounted(() => {
+  try {
+    initMaskCanvas();
+    if (props.baseImageSrc) loadImage(props.baseImageSrc);
+
+    // Check if Src is already present
+    if (props.gradCamSrc) {
+      processGradCam(props.gradCamSrc);
+    }
+  } catch (e) {
+    console.error("Mount Error:", e.message);
+  }
 });
+
+// Watchers
+watch(() => props.baseImageSrc, loadImage);
+watch(() => props.gradCamSrc, (newVal) => {
+  if (newVal) {
+    processGradCam(newVal);
+  }
+});
+
 </script>
 
 <template>
@@ -165,31 +222,41 @@ defineExpose({
         <v-stage ref="stageRef" :config="stageConfig" @mousedown="handleMouseDown" @mousemove="handleMouseMove"
           @mouseup="handleMouseUp" @mouseleave="handleMouseUp">
           <v-layer>
+            <!-- 1. Base Image (Patient Ultrasound) -->
             <v-image v-if="baseImageObj" :config="{ image: baseImageObj, width, height }" />
-            <v-rect :config="{
-              x: 0, y: 0, width, height,
-              fill: '#0099ff',
-              opacity: 0.3,
+
+            <!-- 1.5 Fallback AI Overlay -->
+            <v-image v-if="gradCamOverlayObj" :config="{
+              image: gradCamOverlayObj,
+              width,
+              height,
+              opacity: 0.5,
               listening: false
             }" />
 
-            <v-group :config="{
-            }">
-              <v-rect v-for="(rect) in gridRects" :key="`${rect.x}-${rect.y}`" :config="{
-                ...rect,
-                opacity: viewMode === 'normalized' ? 0.6 : 0.8,
-                shadowColor: rect.fill,
-                shadowBlur: viewMode === 'normalized' ? 20 : 0,
-                shadowOpacity: viewMode === 'normalized' ? 1 : 0,
-                cornerRadius: viewMode === 'normalized' ? rect.width / 2 : 0
-              }" />
-            </v-group>
+            <!-- 2. Overlay Tint for "Raw" view mode (Optional styling) -->
+            <v-rect v-if="baseImageObj" :config="{
+              x: 0, y: 0, width, height,
+              fill: '#0099ff',
+              opacity: 0.1,
+              listening: false
+            }" />
 
+            <!-- 3. Mask Layer (The Editable Part) -->
+            <!-- We set opacity to ~0.6 so the USG is visible BEHIND the full blue heatmap -->
+            <v-image v-if="maskImageObj" :config="{
+              image: maskImageObj,
+              width: width,
+              height: height,
+              opacity: 0.65,
+              listening: false
+            }" />
           </v-layer>
         </v-stage>
 
-        <div v-if="viewMode === 'normalized'" class="absolute inset-0 pointer-events-none backdrop-blur-[8px]"
-          style="mix-blend-mode: hard-light; opacity: 0.5;">
+        <!-- View Mode Overlay Effect (Simulates Smooth Contour) -->
+        <div v-if="viewMode === 'normalized'" class="absolute inset-0 pointer-events-none"
+          style="backdrop-filter: blur(8px) contrast(1.2); mix-blend-mode: hard-light; opacity: 0.7;">
         </div>
 
       </div>

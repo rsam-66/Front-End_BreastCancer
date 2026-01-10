@@ -1,40 +1,53 @@
 <script setup>
 import { ref } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
-// 1. Import the reusable Modal
 import BaseModal from '@/components/common/BaseModal.vue'
+import Logo from '@/assets/admin/logo.png' // Utilizing existing logo or doctor logo if spread
+// Import Sidebar Icons
+import WaitingIcon from '@/assets/doctor/waiting-for-review.png'
+import DoneIcon from '@/assets/doctor/done.png'
+import AttentionIcon from '@/assets/doctor/need-attention.png'
+import DashboardIcon from '@/assets/doctor/done.png' // Fallback or specific if exists. Using generic for now or SVG? 
+// Actually design shows specific icons. Let's use SVG for Dashboard as per likely design standard, or if there is a dashboard png?
+// User didn't provide dashboard.png, I will stick to Grid Icon for Dashboard or generic.
+// Wait, "Dashboard" in mockup has a grid icon. I'll keep SVG for Dashboard, PNG for others.
 
 const route = useRoute()
 const router = useRouter()
 
-// 2. STATE FOR MODAL
+// STATE FOR MODAL
 const showLogoutModal = ref(false)
+const isSidebarOpen = ref(false)
 
-// 3. MENU ITEMS (Added 'icon' keys to match your template logic)
+// MENU ITEMS
 const menuItems = [
-  { 
-    name: 'Dashboard', 
-    path: '/doctor/dashboard', 
-    icon: 'grid' 
+  {
+    name: 'Dashboard',
+    path: '/doctor/dashboard',
+    type: 'svg',
+    iconPath: 'grid' // SVG identifier
   },
-  { 
-    name: 'Pending', 
-    path: '/doctor/dashboard?filter=Not Yet', 
-    icon: 'clock' 
+  {
+    name: 'Waiting For Review',
+    path: '/doctor/dashboard?filter=Not Yet',
+    type: 'img',
+    iconPath: WaitingIcon
   },
-  { 
-    name: 'Completed', 
-    path: '/doctor/dashboard?filter=Done', 
-    icon: 'check-circle' 
+  {
+    name: 'Done',
+    path: '/doctor/dashboard?filter=Done',
+    type: 'img',
+    iconPath: DoneIcon
   },
-  { 
-    name: 'Attention', 
-    path: '/doctor/dashboard?filter=Attention', // Added filter param to distinguish from Dashboard
-    icon: 'alert' // New icon key for Attention
+  {
+    name: 'Need Attention',
+    path: '/doctor/dashboard?filter=Attention',
+    type: 'img',
+    iconPath: AttentionIcon
   }
 ]
 
-// 4. ACTIVE STATE LOGIC
+// ACTIVE STATE LOGIC
 const isActive = (item) => {
   if (item.path.includes('?')) {
     const itemFilter = item.path.split('=')[1]
@@ -46,7 +59,11 @@ const isActive = (item) => {
   return route.path.startsWith(item.path)
 }
 
-// 5. LOGOUT HANDLERS
+const toggleSidebar = () => {
+  isSidebarOpen.value = !isSidebarOpen.value
+}
+
+// LOGOUT HANDLERS
 const handleLogoutClick = () => {
   showLogoutModal.value = true
 }
@@ -60,92 +77,135 @@ const confirmLogout = () => {
 </script>
 
 <template>
-  <div class="flex h-screen bg-white font-sans text-gray-800">
-    <aside class="w-64 flex flex-col bg-gray-100 border-r border-gray-200 flex-shrink-0 transition-all duration-300 mobile-hidden md:flex">
-      
-      <div class="p-6">
-        <div class="font-bold text-xl text-gray-800">Doctor Panel</div>
-        <div class="text-sm text-gray-500 mt-1">Medical Workspace</div>
+  <div class="flex h-screen bg-[#FAFAFA] font-sans text-gray-800">
+    <!-- Sidebar -->
+    <aside
+      class="w-72 flex flex-col bg-[#EDEDED] flex-shrink-0 transition-all duration-300 hidden lg:flex m-4 rounded-3xl h-[calc(100vh-2rem)] shadow-sm relative">
+
+      <!-- 1. Redesigned Header -->
+      <div class="h-32 bg-[#BCE3FD] rounded-t-3xl flex flex-col justify-center px-8 relative overflow-hidden">
+        <!-- Decorative shimmer/gradient optional -->
+        <div class="flex items-start gap-3 z-10">
+          <img :src="Logo" alt="Logo" class="w-8 h-8 object-contain mt-1" />
+          <div>
+            <h1 class="font-bold text-gray-600 text-lg leading-tight">Doctor Dashboard</h1>
+            <p class="text-[10px] text-gray-500 uppercase tracking-wide mt-0.5">Breast Cancer Analytics</p>
+          </div>
+        </div>
       </div>
 
-      <nav class="flex-1 px-4 space-y-2 mt-4">
-        <router-link 
-          v-for="item in menuItems" 
-          :key="item.name" 
-          :to="item.path"
-          class="flex items-center px-4 py-3 rounded-lg font-medium transition-colors" 
+      <!-- 2. Navigation "Cards" -->
+      <nav class="flex-1 px-6 py-8 space-y-5 overflow-y-auto">
+        <router-link v-for="item in menuItems" :key="item.name" :to="item.path"
+          class="flex items-center justify-center px-4 py-4 rounded-xl font-bold text-sm transition-all duration-200 group relative shadow-sm border bg-white hover:shadow-md"
           :class="isActive(item)
-            ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200'
-            : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'"
-        >
-          <span class="w-5 h-5 mr-3 flex items-center justify-center">
-            <svg v-if="item.icon === 'grid'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>
-            <svg v-else-if="item.icon === 'clock'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            <svg v-else-if="item.icon === 'check-circle'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            <svg v-else-if="item.icon === 'alert'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
-            <svg v-else-if="item.icon === 'cog'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 01-1.44-4.282m3.102.069a18.03 18.03 0 01-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 018.835 2.535M10.34 6.66a23.847 23.847 0 008.835-2.535m0 0A23.74 23.74 0 0018.795 3m.38 1.125a23.91 23.91 0 011.014 5.795" /></svg>
+            ? 'border-gray-800 ring-1 ring-gray-800'
+            : 'border-transparent'">
+
+          <span class="w-6 h-6 mr-4 flex items-center justify-center">
+            <!-- SVG Icon -->
+            <svg v-if="item.type === 'svg' && item.iconPath === 'grid'" xmlns="http://www.w3.org/2000/svg"
+              fill="currentColor" viewBox="0 0 24 24" class="w-5 h-5 text-gray-600">
+              <path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z" />
+            </svg>
+            <!-- PNG Icon -->
+            <img v-else :src="item.iconPath" class="w-full h-full object-contain" />
           </span>
-          {{ item.name }}
+          <span class="text-gray-600" :class="{ 'font-bold text-gray-800': isActive(item) }">
+            {{ item.name }}
+          </span>
         </router-link>
       </nav>
 
-      <div class="p-6 border-t border-gray-200">
+      <!-- 3. Bottom Logout -->
+      <div class="px-6 pb-8 pt-4 mb-2">
         <button @click="handleLogoutClick"
-          class="flex items-center text-red-500 font-medium hover:text-red-700 transition-colors w-full cursor-pointer">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-            stroke="currentColor" class="w-5 h-5 mr-3">
-            <path stroke-linecap="round" stroke-linejoin="round"
-              d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+          class="flex items-center justify-center px-4 py-4 rounded-xl bg-white text-red-600 font-bold text-sm transition-all duration-200 w-full cursor-pointer hover:shadow-md shadow-sm border border-transparent hover:border-red-100">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 mr-3">
+            <path fill-rule="evenodd"
+              d="M12 2.25a.75.75 0 01.75.75v9a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM6.166 5.106a.75.75 0 010 1.06 8.25 8.25 0 1011.668 0 .75.75 0 111.06-1.06 9.75 9.75 0 11-13.788 0 .75.75 0 011.06 0z"
+              clip-rule="evenodd" />
           </svg>
           Log Out
         </button>
       </div>
     </aside>
 
-    <main class="flex-1 flex flex-col overflow-hidden">
-      <header class="md:hidden bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-        <span class="font-bold">Doctor Dashboard</span>
-        <button class="text-gray-500">Menu</button>
-      </header>
+    <!-- Mobile Drawer (Mirrors the Sidebar Design) -->
+    <div v-if="isSidebarOpen" class="fixed inset-0 z-50 lg:hidden flex">
+      <div class="fixed inset-0 bg-black/50 transition-opacity" @click="isSidebarOpen = false"></div>
+      <div class="relative w-72 flex flex-col bg-[#EDEDED] h-full shadow-xl">
+        <div class="h-32 bg-[#BCE3FD] flex flex-col justify-center px-8 relative">
+          <div class="flex items-start gap-3">
+            <img :src="Logo" alt="Logo" class="w-8 h-8 object-contain mt-1" />
+            <div>
+              <h1 class="font-bold text-gray-600 text-lg leading-tight">Doctor Dashboard</h1>
+              <p class="text-[10px] text-gray-500 uppercase tracking-wide mt-0.5">Breast Cancer Analytics</p>
+            </div>
+          </div>
+        </div>
+        <nav class="flex-1 px-6 py-8 space-y-5 overflow-y-auto">
+          <router-link v-for="item in menuItems" :key="item.name" :to="item.path" @click="isSidebarOpen = false"
+            class="flex items-center px-4 py-4 rounded-xl font-bold text-sm bg-white shadow-sm hover:shadow-md"
+            :class="isActive(item) ? 'ring-1 ring-gray-800' : ''">
+            <span class="w-6 h-6 mr-4 flex items-center justify-center">
+              <svg v-if="item.type === 'svg'" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
+                class="w-5 h-5 text-gray-600">
+                <path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z" />
+              </svg>
+              <img v-else :src="item.iconPath" class="w-full h-full object-contain" />
+            </span>
+            <span class="text-gray-600">{{ item.name }}</span>
+          </router-link>
+        </nav>
+        <div class="px-6 pb-8 pt-4 mb-2">
+          <button @click="() => { handleLogoutClick(); isSidebarOpen = false; }"
+            class="flex items-center justify-center px-4 py-4 rounded-xl bg-white text-red-600 font-bold text-sm w-full shadow-sm">Log
+            Out</button>
+        </div>
+      </div>
+    </div>
 
-      <div class="flex-1 overflow-auto bg-white p-8">
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col overflow-hidden bg-[#FAFAFA]">
+      <header class="lg:hidden bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+        <span class="font-bold text-gray-700">Doctor Panel</span>
+        <button @click="toggleSidebar" class="text-gray-500">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+            stroke="currentColor" class="w-6 h-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+          </svg>
+        </button>
+      </header>
+      <div class="flex-1 overflow-auto p-4 lg:p-12">
         <RouterView />
       </div>
     </main>
 
-    <BaseModal 
-      :isOpen="showLogoutModal" 
-      title="Sign Out" 
-      @close="showLogoutModal = false"
-      maxWidth="max-w-sm"
-    >
-      <div class="text-gray-600 mb-2">
-        Are you sure you want to sign out of your account?
-      </div>
-      
+    <BaseModal :isOpen="showLogoutModal" title="Sign Out" @close="showLogoutModal = false" maxWidth="max-w-sm">
+      <div class="text-gray-600 mb-2">Are you sure you want to sign out?</div>
       <template #footer>
-        <button 
-          @click="showLogoutModal = false"
-          class="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition-colors"
-        >
-          Cancel
-        </button>
-        <button 
-          @click="confirmLogout"
-          class="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-bold shadow-sm transition-colors"
-        >
-          Yes, Sign Out
-        </button>
+        <button @click="showLogoutModal = false"
+          class="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 font-medium">Cancel</button>
+        <button @click="confirmLogout"
+          class="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-bold">Yes, Sign Out</button>
       </template>
     </BaseModal>
-
   </div>
 </template>
 
 <style scoped>
-@media (max-width: 768px) {
-  .mobile-hidden {
-    display: none;
-  }
+/* Custom Scrollbar for sidebar if needed */
+aside nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+aside nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+aside nav::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
 }
 </style>
