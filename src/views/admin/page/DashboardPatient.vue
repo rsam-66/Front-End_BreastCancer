@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { stats } from "../data/dashboardData.js";
 import { dataService } from "@/services/dataService.js";
 import { useToast } from "@/composables/useToast";
@@ -10,6 +10,7 @@ import ModalDeletePatient from "../components/ModalDeletePatient.vue";
 import ModalAIAnalysis from "../components/ModalAIAnalysis.vue";
 import ModalUploadImage from "../components/ModalUploadImage.vue";
 import ModalAnalyzing from "../components/ModalAnalyzing.vue";
+import Pagination from "@/components/common/Pagination.vue";
 
 const patientList = ref([]);
 const isAddModalOpen = ref(false);
@@ -21,6 +22,9 @@ const isAnalyzing = ref(false);
 const selectedPatient = ref(null);
 const isLoading = ref(true);
 const errorMessage = ref("");
+
+const currentPage = ref(1);
+const itemsPerPage = 10;
 
 const toast = useToast();
 
@@ -35,6 +39,20 @@ const fetchPatients = async () => {
   } finally {
     isLoading.value = false;
   }
+};
+
+const paginatedPatients = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+  return patientList.value.slice(start, end);
+});
+
+const totalPages = computed(() => {
+  return Math.ceil(patientList.value.length / itemsPerPage);
+});
+
+const handlePageChange = (page) => {
+  currentPage.value = page;
 };
 
 onMounted(() => {
@@ -346,33 +364,50 @@ const handleReAnalysis = async () => {
 
       <div
         class="w-full flex p-3 my-3 bg-gray-100 items-center rounded-[12px]"
-        v-for="patient in patientList"
+        v-for="patient in paginatedPatients"
         :key="patient.id"
       >
         <div class="flex-[0.5] h-10 flex items-center justify-center">
           <div>{{ patient.id }}</div>
         </div>
-        <div class="flex-1 h-10 flex items-center justify-center">
-          <div>{{ patient.name }}</div>
+        <div
+          class="flex-1 h-10 flex items-center justify-center overflow-hidden"
+        >
+          <div class="truncate max-w-[120px]" :title="patient.name">
+            {{ patient.name }}
+          </div>
         </div>
-        <div class="flex-1 h-10 flex items-center justify-center">
-          <div class="text-sm text-gray-600">{{ patient.email }}</div>
+        <div
+          class="flex-1 h-10 flex items-center justify-center overflow-hidden"
+        >
+          <div
+            class="truncate max-w-[150px] text-sm text-gray-600"
+            :title="patient.email"
+          >
+            {{ patient.email }}
+          </div>
         </div>
         <div class="flex-1 h-10 flex items-center justify-center">
           <div>{{ patient.phone }}</div>
         </div>
         <div class="flex-1 h-10 flex items-center justify-center px-2">
           <span
-            v-if="patient.review === 'Done'"
+            v-if="patient.review === 'VALIDATED'"
             class="bg-green-100 text-green-600 py-1 px-3 rounded-full text-xs font-bold border border-green-200"
           >
-            Done
+            Validated
           </span>
           <span
-            v-else-if="patient.review === 'Not Yet'"
+            v-else-if="patient.review === 'PENDING'"
             class="bg-yellow-100 text-yellow-600 py-1 px-3 rounded-full text-xs font-bold border border-yellow-200"
           >
-            Not Yet
+            Pending
+          </span>
+          <span
+            v-else-if="patient.review === 'REJECTED'"
+            class="bg-red-100 text-red-600 py-1 px-3 rounded-full text-xs font-bold border border-red-200"
+          >
+            Rejected
           </span>
           <span v-else class="text-gray-400 font-bold"> - </span>
         </div>
@@ -440,6 +475,12 @@ const handleReAnalysis = async () => {
         @submit="handleUploadImage"
       />
       <ModalAnalyzing :isOpen="isAnalyzing" />
+
+      <Pagination
+        :current-page="currentPage"
+        :total-pages="totalPages"
+        @page-change="handlePageChange"
+      />
     </div>
   </div>
 </template>

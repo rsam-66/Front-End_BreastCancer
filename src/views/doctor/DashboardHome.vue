@@ -14,6 +14,8 @@ const route = useRoute();
 const currentFilter = ref("All");
 const patients = ref([]);
 const isLoading = ref(true);
+const isLoadingStats = ref(true);
+const statsData = ref({ total: 0, pending: 0, completed: 0, attention: 0 });
 
 watch(
   () => route.query.filter,
@@ -28,6 +30,17 @@ watch(
 );
 
 onMounted(async () => {
+  // Fetch Stats
+  isLoadingStats.value = true;
+  try {
+    statsData.value = await dataService.getDoctorStats();
+  } catch (error) {
+    console.error("Failed to fetch doctor stats:", error);
+  } finally {
+    isLoadingStats.value = false;
+  }
+
+  // Fetch Patients
   try {
     isLoading.value = true;
     patients.value = await dataService.getPatients();
@@ -39,16 +52,10 @@ onMounted(async () => {
 });
 
 const stats = computed(() => {
-  const total = patients.value.length;
-  const pending = patients.value.filter(
-    (p) => p.review === "Not Yet" || p.review === "-"
-  ).length;
-  const completed = patients.value.filter((p) => p.review === "Done").length;
-
   return [
     {
       label: "My Patients",
-      value: total,
+      value: statsData.value.total,
       icon: PatientIcon,
       bgColor: "bg-blue-50",
       textColor: "text-[#0099ff]",
@@ -56,15 +63,23 @@ const stats = computed(() => {
     },
     {
       label: "Pending Review",
-      value: pending,
+      value: statsData.value.pending,
       icon: WaitingIcon,
       bgColor: "bg-red-50",
       textColor: "text-red-500",
       borderColor: "hover:border-red-500/50",
     },
     {
+      label: "Attention",
+      value: statsData.value.attention,
+      icon: WaitingIcon, // You might want an AlertIcon or reuse WaitingIcon with different color
+      bgColor: "bg-orange-50",
+      textColor: "text-orange-500",
+      borderColor: "hover:border-orange-500/50",
+    },
+    {
       label: "Completed",
-      value: completed,
+      value: statsData.value.completed,
       icon: PatientIcon, // Reuse PatientIcon with green theme
       bgColor: "bg-green-50",
       textColor: "text-green-500",
@@ -77,20 +92,35 @@ const filteredPatients = computed(() => {
   if (currentFilter.value === "All") {
     return patients.value;
   }
-  if (currentFilter.value === "Not Yet") {
+  if (currentFilter.value === "Pending") {
     return patients.value.filter(
-      (p) => p.review === "Not Yet" || p.review === "-"
+      (p) =>
+        p.review === "PENDING" || p.review === "Not Yet" || p.review === "-"
     );
   }
+  if (currentFilter.value === "Completed") {
+    return patients.value.filter(
+      (p) => p.review === "VALIDATED" || p.review === "Done"
+    );
+  }
+  if (currentFilter.value === "Attention") {
+    return patients.value.filter((p) => p.review === "REJECTED");
+  }
+  // Fallback for direct matches
   return patients.value.filter((p) => p.review === currentFilter.value);
 });
 
 const getStatusColor = (status) => {
   switch (status) {
+    case "VALIDATED":
     case "Done":
       return "bg-green-100 text-green-600 border-green-200";
+    case "PENDING":
     case "Not Yet":
+    case "-":
       return "bg-yellow-100 text-yellow-600 border-yellow-200";
+    case "REJECTED":
+      return "bg-red-100 text-red-600 border-red-200";
     default:
       return "bg-gray-100 text-gray-500 border-gray-200";
   }
@@ -109,8 +139,10 @@ const openReview = (patientId) => {
         {{
           currentFilter === "All"
             ? "Overview"
-            : currentFilter === "Not Yet"
-            ? "Waiting List"
+            : currentFilter === "Pending"
+            ? "Pending Reviews"
+            : currentFilter === "Attention"
+            ? "Needs Attention"
             : "Patient History"
         }}
       </h2>
@@ -118,7 +150,7 @@ const openReview = (patientId) => {
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
       <div
         v-for="stat in stats"
         :key="stat.label"
@@ -160,8 +192,10 @@ const openReview = (patientId) => {
           {{
             currentFilter === "All"
               ? "All Patients"
-              : currentFilter === "Not Yet"
+              : currentFilter === "Pending"
               ? "Pending Reviews"
+              : currentFilter === "Attention"
+              ? "Rejected/Attention"
               : "Completed Reviews"
           }}
         </h3>

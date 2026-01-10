@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { dataService } from "@/services/dataService.js";
 import Loading from "@/components/common/Loading.vue";
+import Pagination from "@/components/common/Pagination.vue";
 
 // Import PNG Icons
 import PatientIcon from "@/assets/admin/patient.png";
@@ -12,6 +13,9 @@ import WaitingIcon from "@/assets/admin/waiting.png";
 const stats = ref([]);
 const activities = ref([]);
 const isLoading = ref(true);
+
+const currentPage = ref(1);
+const itemsPerPage = 5;
 
 const fetchData = async () => {
   isLoading.value = true;
@@ -33,6 +37,20 @@ const fetchData = async () => {
   } finally {
     isLoading.value = false;
   }
+};
+
+const paginatedActivities = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+  return activities.value.slice(start, end);
+});
+
+const totalPages = computed(() => {
+  return Math.ceil(activities.value.length / itemsPerPage);
+});
+
+const handlePageChange = (page) => {
+  currentPage.value = page;
 };
 
 // Simple helper to get colors for activity icons matching the design
@@ -190,7 +208,7 @@ onMounted(() => {
 
         <div class="space-y-4">
           <div
-            v-for="(activity, index) in activities"
+            v-for="(activity, index) in paginatedActivities"
             :key="activity.id"
             class="bg-[#EEEEEE] rounded-2xl p-4 flex items-center justify-between hover:bg-gray-200 transition-colors"
           >
@@ -220,6 +238,12 @@ onMounted(() => {
             </div>
           </div>
         </div>
+
+        <Pagination
+          :current-page="currentPage"
+          :total-pages="totalPages"
+          @page-change="handlePageChange"
+        />
       </div>
     </div>
   </div>
