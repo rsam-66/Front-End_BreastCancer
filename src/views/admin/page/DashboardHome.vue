@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import { dataService } from "@/services/dataService.js";
 import Loading from "@/components/common/Loading.vue";
+import InfoCard from "../components/InfoCard.vue";
 
 // Import PNG Icons
 import PatientIcon from "@/assets/admin/patient.png";
@@ -79,109 +80,10 @@ onMounted(() => {
     <div v-else>
       <!-- Stats Cards -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        <!-- Card 1: Total Patient -->
-        <div
-          class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm relative h-32 flex flex-col justify-between group hover:border-[#0099ff]/50 transition-all cursor-pointer"
-        >
-          <div class="flex items-start justify-between">
-            <div
-              class="bg-blue-50 p-2.5 rounded-xl min-w-[48px] h-[48px] flex items-center justify-center"
-            >
-              <img
-                :src="PatientIcon"
-                alt="Total Patient"
-                class="w-6 h-6 object-contain"
-              />
-            </div>
-            <span class="text-gray-500 text-sm font-medium pt-1 text-right"
-              >Total Patient</span
-            >
-          </div>
-          <div class="flex justify-end items-end">
-            <span
-              class="text-4xl text-gray-800 font-normal leading-none mb-1"
-              >{{ stats[0]?.value || 0 }}</span
-            >
-          </div>
-        </div>
-
-        <!-- Card 2: Total Doctor -->
-        <div
-          class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm relative h-32 flex flex-col justify-between group hover:border-[#004d80]/50 transition-all cursor-pointer"
-        >
-          <div class="flex items-start justify-between">
-            <div
-              class="bg-[#eef5fa] p-2.5 rounded-xl min-w-[48px] h-[48px] flex items-center justify-center"
-            >
-              <img
-                :src="DoctorIcon"
-                alt="Total Doctor"
-                class="w-6 h-6 object-contain"
-              />
-            </div>
-            <span class="text-gray-500 text-sm font-medium pt-1 text-right"
-              >Total Doctor</span
-            >
-          </div>
-          <div class="flex justify-end items-end">
-            <span
-              class="text-4xl text-gray-800 font-normal leading-none mb-1"
-              >{{ stats[1]?.value || 0 }}</span
-            >
-          </div>
-        </div>
-
-        <!-- Card 3: Image Uploaded -->
-        <div
-          class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm relative h-32 flex flex-col justify-between group hover:border-green-500/50 transition-all cursor-pointer"
-        >
-          <div class="flex items-start justify-between">
-            <div
-              class="bg-green-50 p-2.5 rounded-xl min-w-[48px] h-[48px] flex items-center justify-center"
-            >
-              <img
-                :src="ImageIcon"
-                alt="Image Uploaded"
-                class="w-6 h-6 object-contain"
-              />
-            </div>
-            <span class="text-gray-500 text-sm font-medium pt-1 text-right"
-              >Image Uploaded</span
-            >
-          </div>
-          <div class="flex justify-end items-end">
-            <span
-              class="text-4xl text-gray-800 font-normal leading-none mb-1"
-              >{{ stats[2]?.value || 0 }}</span
-            >
-          </div>
-        </div>
-
-        <!-- Card 4: Waiting -->
-        <div
-          class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm relative h-32 flex flex-col justify-between group hover:border-red-500/50 transition-all cursor-pointer"
-        >
-          <div class="flex items-start justify-between">
-            <div
-              class="bg-red-50 p-2.5 rounded-xl min-w-[48px] h-[48px] flex items-center justify-center"
-            >
-              <img
-                :src="WaitingIcon"
-                alt="Waiting For Review"
-                class="w-6 h-6 object-contain"
-              />
-            </div>
-            <span class="text-gray-500 text-sm font-medium pt-1 text-right"
-              >Waiting For Review</span
-            >
-          </div>
-          <div class="flex justify-end items-end">
-            <span
-              class="text-4xl text-gray-800 font-normal leading-none mb-1"
-              >{{ stats[3]?.value || 0 }}</span
-            >
-          </div>
-        </div>
+        <InfoCard title="Total Patient" :value="stats[0]?.value || 0" :icon="PatientIcon" theme="blue" />
+        <InfoCard title="Total Doctor" :value="stats[1]?.value || 0" :icon="DoctorIcon" theme="dark-blue" />
+        <InfoCard title="Image Uploaded" :value="stats[2]?.value || 0" :icon="ImageIcon" theme="green" />
+        <InfoCard title="Waiting For Review" :value="stats[3]?.value || 0" :icon="WaitingIcon" theme="red" />
       </div>
 
       <!-- Newest Activity -->
@@ -189,21 +91,12 @@ onMounted(() => {
         <h3 class="font-bold text-gray-800 text-2xl mb-6">Newest Activity</h3>
 
         <div class="space-y-4">
-          <div
-            v-for="(activity, index) in activities"
-            :key="activity.id"
-            class="bg-[#EEEEEE] rounded-2xl p-4 flex items-center justify-between hover:bg-gray-200 transition-colors"
-          >
+          <div v-for="(activity, index) in activities" :key="activity.id"
+            class="bg-[#EEEEEE] rounded-2xl p-4 flex items-center justify-between hover:bg-gray-200 transition-colors">
             <div class="flex items-center gap-4">
               <!-- Icon Box -->
-              <div
-                class="w-12 h-12 rounded-xl flex items-center justify-center"
-                :class="getActivityIconColor(index)"
-              >
-                <img
-                  :src="getActivityIcon(index)"
-                  class="w-6 h-6 object-contain"
-                />
+              <div class="w-12 h-12 rounded-xl flex items-center justify-center" :class="getActivityIconColor(index)">
+                <img :src="getActivityIcon(index)" class="w-6 h-6 object-contain" />
               </div>
 
               <!-- Text Info -->
