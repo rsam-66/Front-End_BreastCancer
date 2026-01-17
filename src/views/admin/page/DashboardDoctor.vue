@@ -13,6 +13,8 @@ import PatientIcon from "@/assets/admin/patient.png";
 import DoctorIcon from "@/assets/admin/doctor.png";
 import ImageIcon from "@/assets/admin/image.png";
 import WaitingIcon from "@/assets/admin/waiting.png";
+import EditIcon from "@/assets/admin/edit.png";
+import DeleteIcon from "@/assets/admin/delete.png";
 
 const heads = ["ID", "Name", "Email", "Status", "Actions"];
 
@@ -154,13 +156,11 @@ const handleDeleteDoctor = async () => {
       </div>
       <div class="flex-1 h-10 flex items-center justify-center">
         <div class="gap-2 flex">
-          <button @click="openEditModal(doctor)"
-            class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-[12px]">
-            Edit
+          <button @click="openEditModal(doctor)" class="p-2 transition-transform hover:scale-110">
+            <img :src="EditIcon" alt="Edit" class="w-8 h-8" />
           </button>
-          <button @click="openDeleteModal(doctor)"
-            class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-[12px]">
-            Delete
+          <button @click="openDeleteModal(doctor)" class="p-2 transition-transform hover:scale-110">
+            <img :src="DeleteIcon" alt="Delete" class="w-8 h-8" />
           </button>
         </div>
       </div>
