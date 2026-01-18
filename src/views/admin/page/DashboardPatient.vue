@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { dataService } from "@/services/dataService.js";
 import { useToast } from "@/composables/useToast";
 import Loading from "@/components/common/Loading.vue";
@@ -9,6 +9,8 @@ import ModalDeletePatient from "../components/ModalDeletePatient.vue";
 import ModalAIAnalysis from "../components/ModalAIAnalysis.vue";
 import ModalUploadImage from "../components/ModalUploadImage.vue";
 import ModalAnalyzing from "../components/ModalAnalyzing.vue";
+import Pagination from "@/components/common/Pagination.vue";
+import SearchInput from "@/components/common/SearchInput.vue";
 import InfoCard from "../components/InfoCard.vue";
 
 // Import Icons
@@ -21,6 +23,7 @@ import DeleteIcon from "@/assets/admin/delete.png";
 
 const patientList = ref([]);
 const stats = ref([]);
+const searchQuery = ref("");
 const isAddModalOpen = ref(false);
 const isEditModalOpen = ref(false);
 const isDeleteModalOpen = ref(false);
@@ -31,6 +34,9 @@ const selectedPatient = ref(null);
 const isLoading = ref(true);
 const errorMessage = ref("");
 
+const currentPage = ref(1);
+const itemsPerPage = 10;
+
 const toast = useToast();
 
 const fetchPatients = async () => {
@@ -38,7 +44,7 @@ const fetchPatients = async () => {
   try {
     const [patients, statsData] = await Promise.all([
       dataService.getPatients(),
-      dataService.getDashboardStats()
+      dataService.getDashboardStats(),
     ]);
     patientList.value = patients;
     stats.value = statsData;
@@ -49,6 +55,38 @@ const fetchPatients = async () => {
   } finally {
     isLoading.value = false;
   }
+};
+
+const filteredPatients = computed(() => {
+  if (!searchQuery.value) return patientList.value;
+  const lowerQuery = searchQuery.value.toLowerCase();
+  return patientList.value.filter(
+    (p) =>
+      p.name.toLowerCase().includes(lowerQuery) ||
+      p.email.toLowerCase().includes(lowerQuery) ||
+      p.id.toString().includes(lowerQuery) ||
+      p.phone.includes(lowerQuery),
+  );
+});
+
+const paginatedPatients = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+  return filteredPatients.value.slice(start, end);
+});
+
+const totalPages = computed(() => {
+  return Math.ceil(filteredPatients.value.length / itemsPerPage);
+});
+
+// Reset page when search changes
+import { watch } from "vue";
+watch(searchQuery, () => {
+  currentPage.value = 1;
+});
+
+const handlePageChange = (page) => {
+  currentPage.value = page;
 };
 
 onMounted(() => {
@@ -89,12 +127,12 @@ const handleAddPatient = async (newPatient) => {
 
       await dataService.uploadMedicalRecord(
         createdPatient.id,
-        newPatient.rawFile
+        newPatient.rawFile,
       );
       await fetchPatients();
 
       const freshPatient = patientList.value.find(
-        (p) => p.id === createdPatient.id
+        (p) => p.id === createdPatient.id,
       );
       if (freshPatient) {
         selectedPatient.value = freshPatient;
@@ -125,13 +163,13 @@ const handleEditPatient = async (updatedPatient) => {
 
       await dataService.uploadMedicalRecord(
         selectedPatient.value.id,
-        updatedPatient.rawFile
+        updatedPatient.rawFile,
       );
 
       await fetchPatients();
 
       const freshPatient = patientList.value.find(
-        (p) => p.id === selectedPatient.value.id
+        (p) => p.id === selectedPatient.value.id,
       );
       if (freshPatient) {
         selectedPatient.value = freshPatient;
@@ -173,8 +211,9 @@ const handleUploadImage = async (file) => {
   } catch (error) {
     console.error("Failed to upload image:", error);
     toast.error(
-      `Upload failed: ${error.message || error.error_description || "Unknown error"
-      }`
+      `Upload failed: ${
+        error.message || error.error_description || "Unknown error"
+      }`,
     );
     selectedPatient.value = null;
   } finally {
@@ -239,21 +278,50 @@ const handleReAnalysis = async () => {
     </div>
 
     <div v-if="!isLoading && !errorMessage">
+      <!-- Info Cards (Incoming UI) -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        <InfoCard title="Total Patient" :value="stats[0]?.value || 0" :icon="PatientIcon" theme="blue" />
-        <InfoCard title="Total Doctor" :value="stats[1]?.value || 0" :icon="DoctorIcon" theme="dark-blue" />
-        <InfoCard title="Image Uploaded" :value="stats[2]?.value || 0" :icon="ImageIcon" theme="green" />
-        <InfoCard title="Waiting For Review" :value="stats[3]?.value || 0" :icon="WaitingIcon" theme="red" />
+        <InfoCard
+          title="Total Patient"
+          :value="stats[0]?.value || 0"
+          :icon="PatientIcon"
+          theme="blue"
+        />
+        <InfoCard
+          title="Total Doctor"
+          :value="stats[1]?.value || 0"
+          :icon="DoctorIcon"
+          theme="dark-blue"
+        />
+        <InfoCard
+          title="Image Uploaded"
+          :value="stats[2]?.value || 0"
+          :icon="ImageIcon"
+          theme="green"
+        />
+        <InfoCard
+          title="Waiting For Review"
+          :value="stats[3]?.value || 0"
+          :icon="WaitingIcon"
+          theme="red"
+        />
       </div>
 
       <div class="w-full flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold">Patients Management</h1>
-        <button @click="openAddModal" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-[12px]">
-          Add Patient
-        </button>
+        <div class="flex gap-4 items-center">
+          <SearchInput v-model="searchQuery" placeholder="Search patient..." />
+          <button
+            @click="openAddModal"
+            class="whitespace-nowrap bg-blue-500 hover:bg-blue-600 text-white py-3 px-6 rounded-[12px] font-medium transition-colors"
+          >
+            Add Patient
+          </button>
+        </div>
       </div>
 
-      <div class="w-full flex p-3 bg-white border rounded-[12px] text-gray-500 font-medium mb-2">
+      <div
+        class="w-full flex p-3 bg-white border rounded-[12px] text-gray-500 font-medium mb-2"
+      >
         <div class="flex-[0.5] h-10 flex items-center justify-center">ID</div>
         <div class="flex-1 h-10 flex items-center justify-center">Name</div>
         <div class="flex-1 h-10 flex items-center justify-center">Email</div>
@@ -263,63 +331,126 @@ const handleReAnalysis = async () => {
         <div class="flex-1 h-10 flex items-center justify-center">Actions</div>
       </div>
 
-      <div class="w-full flex p-3 my-3 bg-gray-100 items-center rounded-[12px]" v-for="patient in patientList"
-        :key="patient.id">
+      <div
+        class="w-full flex p-3 my-3 bg-gray-100 items-center rounded-[12px]"
+        v-for="patient in paginatedPatients"
+        :key="patient.id"
+      >
         <div class="flex-[0.5] h-10 flex items-center justify-center">
           <div>{{ patient.id }}</div>
         </div>
-        <div class="flex-1 h-10 flex items-center justify-center">
-          <div>{{ patient.name }}</div>
+        <div
+          class="flex-1 h-10 flex items-center justify-center overflow-hidden"
+        >
+          <div class="truncate max-w-[120px]" :title="patient.name">
+            {{ patient.name }}
+          </div>
         </div>
-        <div class="flex-1 h-10 flex items-center justify-center">
-          <div class="text-sm text-gray-600">{{ patient.email }}</div>
+        <div
+          class="flex-1 h-10 flex items-center justify-center overflow-hidden"
+        >
+          <div
+            class="truncate max-w-[150px] text-sm text-gray-600"
+            :title="patient.email"
+          >
+            {{ patient.email }}
+          </div>
         </div>
         <div class="flex-1 h-10 flex items-center justify-center">
           <div>{{ patient.phone }}</div>
         </div>
         <div class="flex-1 h-10 flex items-center justify-center px-2">
-          <span v-if="patient.review === 'Done'"
-            class="bg-green-100 text-green-600 py-1 px-3 rounded-full text-xs font-bold border border-green-200">
-            Done
+          <span
+            v-if="patient.review === 'VALIDATED'"
+            class="bg-green-100 text-green-600 py-1 px-3 rounded-full text-xs font-bold border border-green-200"
+          >
+            Validated
           </span>
-          <span v-else-if="patient.review === 'Not Yet'"
-            class="bg-yellow-100 text-yellow-600 py-1 px-3 rounded-full text-xs font-bold border border-yellow-200">
-            Not Yet
+          <span
+            v-else-if="patient.review === 'PENDING'"
+            class="bg-yellow-100 text-yellow-600 py-1 px-3 rounded-full text-xs font-bold border border-yellow-200"
+          >
+            Pending
+          </span>
+          <span
+            v-else-if="patient.review === 'REJECTED'"
+            class="bg-red-100 text-red-600 py-1 px-3 rounded-full text-xs font-bold border border-red-200"
+          >
+            Rejected
           </span>
           <span v-else class="text-gray-400 font-bold"> - </span>
         </div>
         <div class="flex-1 h-10 flex items-center justify-center">
-          <button @click="openUploadModal(patient)" v-if="!patient.image"
-            class="bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-semibold py-1.5 px-3 rounded-lg transition-colors border border-blue-200">
+          <button
+            @click="openUploadModal(patient)"
+            v-if="!patient.image"
+            class="bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-semibold py-1.5 px-3 rounded-lg transition-colors border border-blue-200"
+          >
             + Add Image
           </button>
-          <button @click="openAIModal(patient)" v-else
-            class="bg-green-50 text-green-600 hover:bg-green-100 text-xs font-semibold py-1.5 px-3 rounded-lg transition-colors border border-green-200">
+          <button
+            @click="openAIModal(patient)"
+            v-else
+            class="bg-green-50 text-green-600 hover:bg-green-100 text-xs font-semibold py-1.5 px-3 rounded-lg transition-colors border border-green-200"
+          >
             See Image
           </button>
         </div>
         <div class="flex-1 h-10 flex items-center justify-center">
           <div class="gap-2 flex">
-            <button @click="openEditModal(patient)" class="p-2 transition-transform hover:scale-110">
+            <!-- New Icon Buttons (Incoming UI) -->
+            <button
+              @click="openEditModal(patient)"
+              class="p-2 transition-transform hover:scale-110"
+            >
               <img :src="EditIcon" alt="Edit" class="w-8 h-8" />
             </button>
-            <button @click="openDeleteModal(patient)" class="p-2 transition-transform hover:scale-110">
+            <button
+              @click="openDeleteModal(patient)"
+              class="p-2 transition-transform hover:scale-110"
+            >
               <img :src="DeleteIcon" alt="Delete" class="w-8 h-8" />
             </button>
           </div>
         </div>
       </div>
 
-      <ModalAddPatient :isOpen="isAddModalOpen" @close="isAddModalOpen = false" @submit="handleAddPatient" />
-      <ModalEditPatient :isOpen="isEditModalOpen" :patient="selectedPatient" @close="isEditModalOpen = false"
-        @submit="handleEditPatient" />
-      <ModalDeletePatient :isOpen="isDeleteModalOpen" :patient="selectedPatient" @close="isDeleteModalOpen = false"
-        @confirm="handleDeletePatient" />
-      <ModalAIAnalysis :isOpen="isAIModalOpen" :patient="selectedPatient" @close="isAIModalOpen = false"
-        @reanalyze="handleReAnalysis" />
-      <ModalUploadImage :isOpen="isUploadModalOpen" :patient="selectedPatient" @close="isUploadModalOpen = false"
-        @submit="handleUploadImage" />
+      <ModalAddPatient
+        :isOpen="isAddModalOpen"
+        @close="isAddModalOpen = false"
+        @submit="handleAddPatient"
+      />
+      <ModalEditPatient
+        :isOpen="isEditModalOpen"
+        :patient="selectedPatient"
+        @close="isEditModalOpen = false"
+        @submit="handleEditPatient"
+      />
+      <ModalDeletePatient
+        :isOpen="isDeleteModalOpen"
+        :patient="selectedPatient"
+        @close="isDeleteModalOpen = false"
+        @confirm="handleDeletePatient"
+      />
+      <ModalAIAnalysis
+        :isOpen="isAIModalOpen"
+        :patient="selectedPatient"
+        @close="isAIModalOpen = false"
+        @reanalyze="handleReAnalysis"
+      />
+      <ModalUploadImage
+        :isOpen="isUploadModalOpen"
+        :patient="selectedPatient"
+        @close="isUploadModalOpen = false"
+        @submit="handleUploadImage"
+      />
       <ModalAnalyzing :isOpen="isAnalyzing" />
+
+      <Pagination
+        :current-page="currentPage"
+        :total-pages="totalPages"
+        @page-change="handlePageChange"
+      />
     </div>
   </div>
 </template>

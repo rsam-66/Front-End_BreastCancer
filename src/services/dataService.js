@@ -400,6 +400,54 @@ export const dataService = {
     ];
   },
 
+  async getDoctorStats(doctorId) {
+    let myPatientCount = 0;
+    let pendingCount = 0;
+    let completedCount = 0;
+    let attentionCount = 0;
+
+    try {
+      // My Patients (Total)
+      const { count: total, error: totalError } = await supabase
+        .from("patients")
+        .select("*", { count: "exact", head: true });
+      if (!totalError) myPatientCount = total || 0;
+
+      // Pending (PENDING)
+      // We count patients whose latest record is PENDING, or no record?
+      // Approximate with record count for now as per previous step discussion,
+      // or simplistic query. For sidebar stats, quick numbers are better.
+      const { count: pending, error: pendingError } = await supabase
+        .from("medical_records")
+        .select("*", { count: "exact", head: true })
+        .eq("validation_status", "PENDING");
+      if (!pendingError) pendingCount = pending || 0;
+
+      // Completed (VALIDATED only)
+      const { count: validated, error: valError } = await supabase
+        .from("medical_records")
+        .select("*", { count: "exact", head: true })
+        .eq("validation_status", "VALIDATED");
+      if (!valError) completedCount = validated || 0;
+
+      // Attention (REJECTED)
+      const { count: rejected, error: rejError } = await supabase
+        .from("medical_records")
+        .select("*", { count: "exact", head: true })
+        .eq("validation_status", "REJECTED");
+      if (!rejError) attentionCount = rejected || 0;
+    } catch (e) {
+      console.error("Error fetching doctor stats:", e);
+    }
+
+    return {
+      total: myPatientCount,
+      pending: pendingCount,
+      completed: completedCount,
+      attention: attentionCount,
+    };
+  },
+
   async uploadMedicalRecord(patientId, file) {
     const fileExt = file.name.split(".").pop();
     const fileName = `${patientId}_${Date.now()}.${fileExt}`;

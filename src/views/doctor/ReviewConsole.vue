@@ -180,7 +180,7 @@ const getBrushButtonClass = (type) => {
               </div>
 
               <div class="flex flex-col items-center">
-                <MedicalCanvas ref="medicalCanvasRef" :baseImageSrc="currentImageSrc" :gradCamSrc="aiResultImageSrc"
+                <MedicalCanvas ref="medicalCanvasRef" :baseImageSrc="currentImageSrc" :gradCamSrc="currentImageSrc"
                   :brushType="brushType" :brushSize="brushSize" :viewMode="viewMode"
                   @update:drawings="(data) => (doctorDrawings = data)" />
               </div>

@@ -1,7 +1,9 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { dataService } from "@/services/dataService.js";
 import Loading from "@/components/common/Loading.vue";
+import Pagination from "@/components/common/Pagination.vue";
+import SearchInput from "@/components/common/SearchInput.vue";
 import InfoCard from "../components/InfoCard.vue";
 
 // Import PNG Icons
@@ -13,6 +15,10 @@ import WaitingIcon from "@/assets/admin/waiting.png";
 const stats = ref([]);
 const activities = ref([]);
 const isLoading = ref(true);
+const searchQuery = ref("");
+
+const currentPage = ref(1);
+const itemsPerPage = 5;
 
 const fetchData = async () => {
   isLoading.value = true;
@@ -36,10 +42,38 @@ const fetchData = async () => {
   }
 };
 
+const filteredActivities = computed(() => {
+  if (!searchQuery.value) return activities.value;
+  const lowerQuery = searchQuery.value.toLowerCase();
+  return activities.value.filter(
+    (a) =>
+      a.title.toLowerCase().includes(lowerQuery) ||
+      a.user.toLowerCase().includes(lowerQuery),
+  );
+});
+
+const paginatedActivities = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+  return filteredActivities.value.slice(start, end);
+});
+
+const totalPages = computed(() => {
+  return Math.ceil(filteredActivities.value.length / itemsPerPage);
+});
+
+// Reset page when search changes
+import { watch } from "vue";
+watch(searchQuery, () => {
+  currentPage.value = 1;
+});
+
+const handlePageChange = (page) => {
+  currentPage.value = page;
+};
+
 // Simple helper to get colors for activity icons matching the design
 const getActivityIconColor = (index) => {
-  // Alternating/Variety based on screenshot intuition or data
-  // Design showed: green, blue, blue, green essentially
   const colors = [
     "bg-green-100 text-green-600",
     "bg-blue-100 text-[#0099ff]",
@@ -50,11 +84,6 @@ const getActivityIconColor = (index) => {
 };
 
 const getActivityIcon = (index) => {
-  // 0: Image (Green)
-  // 1: Add Patient (Blue)
-  // 2: Doctor (Dark Blue)
-  // 3: Image (Green)
-  // Return the imported image objects directly
   const icons = [ImageIcon, PatientIcon, DoctorIcon, ImageIcon];
   return icons[index % icons.length];
 };
@@ -78,25 +107,58 @@ onMounted(() => {
     </div>
 
     <div v-else>
-      <!-- Stats Cards -->
+      <!-- Stats Cards (Incoming UI) -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        <InfoCard title="Total Patient" :value="stats[0]?.value || 0" :icon="PatientIcon" theme="blue" />
-        <InfoCard title="Total Doctor" :value="stats[1]?.value || 0" :icon="DoctorIcon" theme="dark-blue" />
-        <InfoCard title="Image Uploaded" :value="stats[2]?.value || 0" :icon="ImageIcon" theme="green" />
-        <InfoCard title="Waiting For Review" :value="stats[3]?.value || 0" :icon="WaitingIcon" theme="red" />
+        <InfoCard
+          title="Total Patient"
+          :value="stats[0]?.value || 0"
+          :icon="PatientIcon"
+          theme="blue"
+        />
+        <InfoCard
+          title="Total Doctor"
+          :value="stats[1]?.value || 0"
+          :icon="DoctorIcon"
+          theme="dark-blue"
+        />
+        <InfoCard
+          title="Image Uploaded"
+          :value="stats[2]?.value || 0"
+          :icon="ImageIcon"
+          theme="green"
+        />
+        <InfoCard
+          title="Waiting For Review"
+          :value="stats[3]?.value || 0"
+          :icon="WaitingIcon"
+          theme="red"
+        />
       </div>
 
       <!-- Newest Activity -->
       <div>
-        <h3 class="font-bold text-gray-800 text-2xl mb-6">Newest Activity</h3>
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="font-bold text-gray-800 text-2xl">Newest Activity</h3>
+          <SearchInput v-model="searchQuery" placeholder="Search activity..." />
+        </div>
 
         <div class="space-y-4">
-          <div v-for="(activity, index) in activities" :key="activity.id"
-            class="bg-[#EEEEEE] rounded-2xl p-4 flex items-center justify-between hover:bg-gray-200 transition-colors">
+          <!-- Activity List (Using Paginated Data from Local Logic) -->
+          <div
+            v-for="(activity, index) in paginatedActivities"
+            :key="activity.id"
+            class="bg-[#EEEEEE] rounded-2xl p-4 flex items-center justify-between hover:bg-gray-200 transition-colors"
+          >
             <div class="flex items-center gap-4">
               <!-- Icon Box -->
-              <div class="w-12 h-12 rounded-xl flex items-center justify-center" :class="getActivityIconColor(index)">
-                <img :src="getActivityIcon(index)" class="w-6 h-6 object-contain" />
+              <div
+                class="w-12 h-12 rounded-xl flex items-center justify-center"
+                :class="getActivityIconColor(index)"
+              >
+                <img
+                  :src="getActivityIcon(index)"
+                  class="w-6 h-6 object-contain"
+                />
               </div>
 
               <!-- Text Info -->
@@ -113,6 +175,12 @@ onMounted(() => {
             </div>
           </div>
         </div>
+
+        <Pagination
+          :current-page="currentPage"
+          :total-pages="totalPages"
+          @page-change="handlePageChange"
+        />
       </div>
     </div>
   </div>
