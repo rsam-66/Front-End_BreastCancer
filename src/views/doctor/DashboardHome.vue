@@ -28,7 +28,7 @@ watch(
       currentFilter.value = "All";
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 onMounted(async () => {
@@ -63,10 +63,10 @@ const stats = computed(() => {
   const total = patients.value.length;
   // Stats Calculation from client data
   const pendingCount = patients.value.filter(
-    (p) => p.review === "PENDING" || p.review === "-" || p.review === "Not Yet"
+    (p) => p.review === "PENDING" || p.review === "-" || p.review === "Not Yet",
   ).length;
   const doneCount = patients.value.filter(
-    (p) => p.review === "VALIDATED" || p.review === "Done"
+    (p) => p.review === "VALIDATED" || p.review === "Done",
   ).length;
   const attentionCount = patients.value.filter(isAttentionCase).length;
   // Total Images (Patients with images)
@@ -107,7 +107,7 @@ const filteredPatients = computed(() => {
       (p) =>
         p.name.toLowerCase().includes(q) ||
         p.email.toLowerCase().includes(q) ||
-        p.id.toString().includes(q)
+        p.id.toString().includes(q),
     );
   }
 
@@ -118,13 +118,13 @@ const filteredPatients = computed(() => {
   if (filter === "Not Yet") {
     return result.filter(
       (p) =>
-        p.review === "PENDING" || p.review === "-" || p.review === "Not Yet"
+        p.review === "PENDING" || p.review === "-" || p.review === "Not Yet",
     );
   }
 
   if (filter === "Done") {
     return result.filter(
-      (p) => p.review === "VALIDATED" || p.review === "Done"
+      (p) => p.review === "VALIDATED" || p.review === "Done",
     );
   }
 
@@ -175,7 +175,7 @@ const openReview = (patientId) => {
 </script>
 
 <template>
-  <div class="max-w-6xl mx-auto">
+  <div class="container mx-auto">
     <!-- Header -->
     <div class="mb-10 text-center">
       <h2 class="text-2xl font-bold text-gray-800 hidden">Doctor Dashboard</h2>

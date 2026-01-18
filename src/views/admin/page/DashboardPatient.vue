@@ -1,6 +1,5 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
-import { stats } from "../data/dashboardData.js";
 import { dataService } from "@/services/dataService.js";
 import { useToast } from "@/composables/useToast";
 import Loading from "@/components/common/Loading.vue";
@@ -11,8 +10,20 @@ import ModalAIAnalysis from "../components/ModalAIAnalysis.vue";
 import ModalUploadImage from "../components/ModalUploadImage.vue";
 import ModalAnalyzing from "../components/ModalAnalyzing.vue";
 import Pagination from "@/components/common/Pagination.vue";
+import SearchInput from "@/components/common/SearchInput.vue";
+import InfoCard from "../components/InfoCard.vue";
+
+// Import Icons
+import PatientIcon from "@/assets/admin/patient.png";
+import DoctorIcon from "@/assets/admin/doctor.png";
+import ImageIcon from "@/assets/admin/image.png";
+import WaitingIcon from "@/assets/admin/waiting.png";
+import EditIcon from "@/assets/admin/edit.png";
+import DeleteIcon from "@/assets/admin/delete.png";
 
 const patientList = ref([]);
+const stats = ref([]);
+const searchQuery = ref("");
 const isAddModalOpen = ref(false);
 const isEditModalOpen = ref(false);
 const isDeleteModalOpen = ref(false);
@@ -31,24 +42,47 @@ const toast = useToast();
 const fetchPatients = async () => {
   isLoading.value = true;
   try {
-    patientList.value = await dataService.getPatients();
+    const [patients, statsData] = await Promise.all([
+      dataService.getPatients(),
+      dataService.getDashboardStats(),
+    ]);
+    patientList.value = patients;
+    stats.value = statsData;
   } catch (error) {
-    console.error("Error fetching patients:", error);
-    errorMessage.value = "Failed to load patients.";
-    toast.error("Failed to load patients");
+    console.error("Error fetching data:", error);
+    errorMessage.value = "Failed to load data.";
+    toast.error("Failed to load data");
   } finally {
     isLoading.value = false;
   }
 };
 
+const filteredPatients = computed(() => {
+  if (!searchQuery.value) return patientList.value;
+  const lowerQuery = searchQuery.value.toLowerCase();
+  return patientList.value.filter(
+    (p) =>
+      p.name.toLowerCase().includes(lowerQuery) ||
+      p.email.toLowerCase().includes(lowerQuery) ||
+      p.id.toString().includes(lowerQuery) ||
+      p.phone.includes(lowerQuery),
+  );
+});
+
 const paginatedPatients = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage;
   const end = start + itemsPerPage;
-  return patientList.value.slice(start, end);
+  return filteredPatients.value.slice(start, end);
 });
 
 const totalPages = computed(() => {
-  return Math.ceil(patientList.value.length / itemsPerPage);
+  return Math.ceil(filteredPatients.value.length / itemsPerPage);
+});
+
+// Reset page when search changes
+import { watch } from "vue";
+watch(searchQuery, () => {
+  currentPage.value = 1;
 });
 
 const handlePageChange = (page) => {
@@ -93,12 +127,12 @@ const handleAddPatient = async (newPatient) => {
 
       await dataService.uploadMedicalRecord(
         createdPatient.id,
-        newPatient.rawFile
+        newPatient.rawFile,
       );
       await fetchPatients();
 
       const freshPatient = patientList.value.find(
-        (p) => p.id === createdPatient.id
+        (p) => p.id === createdPatient.id,
       );
       if (freshPatient) {
         selectedPatient.value = freshPatient;
@@ -129,13 +163,13 @@ const handleEditPatient = async (updatedPatient) => {
 
       await dataService.uploadMedicalRecord(
         selectedPatient.value.id,
-        updatedPatient.rawFile
+        updatedPatient.rawFile,
       );
 
       await fetchPatients();
 
       const freshPatient = patientList.value.find(
-        (p) => p.id === selectedPatient.value.id
+        (p) => p.id === selectedPatient.value.id,
       );
       if (freshPatient) {
         selectedPatient.value = freshPatient;
@@ -179,7 +213,7 @@ const handleUploadImage = async (file) => {
     toast.error(
       `Upload failed: ${
         error.message || error.error_description || "Unknown error"
-      }`
+      }`,
     );
     selectedPatient.value = null;
   } finally {
@@ -244,110 +278,45 @@ const handleReAnalysis = async () => {
     </div>
 
     <div v-if="!isLoading && !errorMessage">
+      <!-- Info Cards (Incoming UI) -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        <div
-          v-for="stat in stats"
-          :key="stat.label"
-          class="bg-white rounded-xl p-5 shadow-sm border relative overflow-hidden transition-transform hover:-translate-y-1"
-          :class="stat.color === 'red' ? 'border-red-100' : 'border-blue-100'"
-        >
-          <div class="flex justify-between items-start h-full relative z-10">
-            <div
-              class="p-3 rounded-lg"
-              :class="
-                stat.color === 'red'
-                  ? 'bg-red-50 text-red-500'
-                  : stat.color === 'green'
-                  ? 'bg-green-50 text-green-500'
-                  : 'bg-blue-50 text-blue-500'
-              "
-            >
-              <svg
-                v-if="stat.icon === 'users'"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="1.5"
-                stroke="currentColor"
-                class="w-6 h-6"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
-                />
-              </svg>
-              <svg
-                v-else-if="stat.icon === 'user-md'"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="1.5"
-                stroke="currentColor"
-                class="w-6 h-6"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-                />
-              </svg>
-              <svg
-                v-else-if="stat.icon === 'image'"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="1.5"
-                stroke="currentColor"
-                class="w-6 h-6"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
-                />
-              </svg>
-              <svg
-                v-else
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="1.5"
-                stroke="currentColor"
-                class="w-6 h-6"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-
-            <div class="ml-4 flex-1">
-              <h3 class="text-gray-500 text-sm font-medium">
-                {{ stat.label }}
-              </h3>
-            </div>
-          </div>
-
-          <div
-            class="absolute bottom-2 right-4 text-4xl font-bold"
-            :class="stat.color === 'red' ? 'text-red-500' : 'text-[#0099ff]'"
-          >
-            {{ stat.value }}
-          </div>
-        </div>
+        <InfoCard
+          title="Total Patient"
+          :value="stats[0]?.value || 0"
+          :icon="PatientIcon"
+          theme="blue"
+        />
+        <InfoCard
+          title="Total Doctor"
+          :value="stats[1]?.value || 0"
+          :icon="DoctorIcon"
+          theme="dark-blue"
+        />
+        <InfoCard
+          title="Image Uploaded"
+          :value="stats[2]?.value || 0"
+          :icon="ImageIcon"
+          theme="green"
+        />
+        <InfoCard
+          title="Waiting For Review"
+          :value="stats[3]?.value || 0"
+          :icon="WaitingIcon"
+          theme="red"
+        />
       </div>
 
       <div class="w-full flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold">Patients Management</h1>
-        <button
-          @click="openAddModal"
-          class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-[12px]"
-        >
-          Add Patient
-        </button>
+        <div class="flex gap-4 items-center">
+          <SearchInput v-model="searchQuery" placeholder="Search patient..." />
+          <button
+            @click="openAddModal"
+            class="whitespace-nowrap bg-blue-500 hover:bg-blue-600 text-white py-3 px-6 rounded-[12px] font-medium transition-colors"
+          >
+            Add Patient
+          </button>
+        </div>
       </div>
 
       <div
@@ -429,17 +398,18 @@ const handleReAnalysis = async () => {
         </div>
         <div class="flex-1 h-10 flex items-center justify-center">
           <div class="gap-2 flex">
+            <!-- New Icon Buttons (Incoming UI) -->
             <button
               @click="openEditModal(patient)"
-              class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-[12px]"
+              class="p-2 transition-transform hover:scale-110"
             >
-              Edit
+              <img :src="EditIcon" alt="Edit" class="w-8 h-8" />
             </button>
             <button
               @click="openDeleteModal(patient)"
-              class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-[12px]"
+              class="p-2 transition-transform hover:scale-110"
             >
-              Delete
+              <img :src="DeleteIcon" alt="Delete" class="w-8 h-8" />
             </button>
           </div>
         </div>

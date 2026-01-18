@@ -3,6 +3,8 @@ import { ref, onMounted, computed } from "vue";
 import { dataService } from "@/services/dataService.js";
 import Loading from "@/components/common/Loading.vue";
 import Pagination from "@/components/common/Pagination.vue";
+import SearchInput from "@/components/common/SearchInput.vue";
+import InfoCard from "../components/InfoCard.vue";
 
 // Import PNG Icons
 import PatientIcon from "@/assets/admin/patient.png";
@@ -13,6 +15,7 @@ import WaitingIcon from "@/assets/admin/waiting.png";
 const stats = ref([]);
 const activities = ref([]);
 const isLoading = ref(true);
+const searchQuery = ref("");
 
 const currentPage = ref(1);
 const itemsPerPage = 5;
@@ -39,14 +42,30 @@ const fetchData = async () => {
   }
 };
 
+const filteredActivities = computed(() => {
+  if (!searchQuery.value) return activities.value;
+  const lowerQuery = searchQuery.value.toLowerCase();
+  return activities.value.filter(
+    (a) =>
+      a.title.toLowerCase().includes(lowerQuery) ||
+      a.user.toLowerCase().includes(lowerQuery),
+  );
+});
+
 const paginatedActivities = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage;
   const end = start + itemsPerPage;
-  return activities.value.slice(start, end);
+  return filteredActivities.value.slice(start, end);
 });
 
 const totalPages = computed(() => {
-  return Math.ceil(activities.value.length / itemsPerPage);
+  return Math.ceil(filteredActivities.value.length / itemsPerPage);
+});
+
+// Reset page when search changes
+import { watch } from "vue";
+watch(searchQuery, () => {
+  currentPage.value = 1;
 });
 
 const handlePageChange = (page) => {
@@ -55,8 +74,6 @@ const handlePageChange = (page) => {
 
 // Simple helper to get colors for activity icons matching the design
 const getActivityIconColor = (index) => {
-  // Alternating/Variety based on screenshot intuition or data
-  // Design showed: green, blue, blue, green essentially
   const colors = [
     "bg-green-100 text-green-600",
     "bg-blue-100 text-[#0099ff]",
@@ -67,11 +84,6 @@ const getActivityIconColor = (index) => {
 };
 
 const getActivityIcon = (index) => {
-  // 0: Image (Green)
-  // 1: Add Patient (Blue)
-  // 2: Doctor (Dark Blue)
-  // 3: Image (Green)
-  // Return the imported image objects directly
   const icons = [ImageIcon, PatientIcon, DoctorIcon, ImageIcon];
   return icons[index % icons.length];
 };
@@ -95,118 +107,43 @@ onMounted(() => {
     </div>
 
     <div v-else>
-      <!-- Stats Cards -->
+      <!-- Stats Cards (Incoming UI) -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        <!-- Card 1: Total Patient -->
-        <div
-          class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm relative h-32 flex flex-col justify-between group hover:border-[#0099ff]/50 transition-all cursor-pointer"
-        >
-          <div class="flex items-start justify-between">
-            <div
-              class="bg-blue-50 p-2.5 rounded-xl min-w-[48px] h-[48px] flex items-center justify-center"
-            >
-              <img
-                :src="PatientIcon"
-                alt="Total Patient"
-                class="w-6 h-6 object-contain"
-              />
-            </div>
-            <span class="text-gray-500 text-sm font-medium pt-1 text-right"
-              >Total Patient</span
-            >
-          </div>
-          <div class="flex justify-end items-end">
-            <span
-              class="text-4xl text-gray-800 font-normal leading-none mb-1"
-              >{{ stats[0]?.value || 0 }}</span
-            >
-          </div>
-        </div>
-
-        <!-- Card 2: Total Doctor -->
-        <div
-          class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm relative h-32 flex flex-col justify-between group hover:border-[#004d80]/50 transition-all cursor-pointer"
-        >
-          <div class="flex items-start justify-between">
-            <div
-              class="bg-[#eef5fa] p-2.5 rounded-xl min-w-[48px] h-[48px] flex items-center justify-center"
-            >
-              <img
-                :src="DoctorIcon"
-                alt="Total Doctor"
-                class="w-6 h-6 object-contain"
-              />
-            </div>
-            <span class="text-gray-500 text-sm font-medium pt-1 text-right"
-              >Total Doctor</span
-            >
-          </div>
-          <div class="flex justify-end items-end">
-            <span
-              class="text-4xl text-gray-800 font-normal leading-none mb-1"
-              >{{ stats[1]?.value || 0 }}</span
-            >
-          </div>
-        </div>
-
-        <!-- Card 3: Image Uploaded -->
-        <div
-          class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm relative h-32 flex flex-col justify-between group hover:border-green-500/50 transition-all cursor-pointer"
-        >
-          <div class="flex items-start justify-between">
-            <div
-              class="bg-green-50 p-2.5 rounded-xl min-w-[48px] h-[48px] flex items-center justify-center"
-            >
-              <img
-                :src="ImageIcon"
-                alt="Image Uploaded"
-                class="w-6 h-6 object-contain"
-              />
-            </div>
-            <span class="text-gray-500 text-sm font-medium pt-1 text-right"
-              >Image Uploaded</span
-            >
-          </div>
-          <div class="flex justify-end items-end">
-            <span
-              class="text-4xl text-gray-800 font-normal leading-none mb-1"
-              >{{ stats[2]?.value || 0 }}</span
-            >
-          </div>
-        </div>
-
-        <!-- Card 4: Waiting -->
-        <div
-          class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm relative h-32 flex flex-col justify-between group hover:border-red-500/50 transition-all cursor-pointer"
-        >
-          <div class="flex items-start justify-between">
-            <div
-              class="bg-red-50 p-2.5 rounded-xl min-w-[48px] h-[48px] flex items-center justify-center"
-            >
-              <img
-                :src="WaitingIcon"
-                alt="Waiting For Review"
-                class="w-6 h-6 object-contain"
-              />
-            </div>
-            <span class="text-gray-500 text-sm font-medium pt-1 text-right"
-              >Waiting For Review</span
-            >
-          </div>
-          <div class="flex justify-end items-end">
-            <span
-              class="text-4xl text-gray-800 font-normal leading-none mb-1"
-              >{{ stats[3]?.value || 0 }}</span
-            >
-          </div>
-        </div>
+        <InfoCard
+          title="Total Patient"
+          :value="stats[0]?.value || 0"
+          :icon="PatientIcon"
+          theme="blue"
+        />
+        <InfoCard
+          title="Total Doctor"
+          :value="stats[1]?.value || 0"
+          :icon="DoctorIcon"
+          theme="dark-blue"
+        />
+        <InfoCard
+          title="Image Uploaded"
+          :value="stats[2]?.value || 0"
+          :icon="ImageIcon"
+          theme="green"
+        />
+        <InfoCard
+          title="Waiting For Review"
+          :value="stats[3]?.value || 0"
+          :icon="WaitingIcon"
+          theme="red"
+        />
       </div>
 
       <!-- Newest Activity -->
       <div>
-        <h3 class="font-bold text-gray-800 text-2xl mb-6">Newest Activity</h3>
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="font-bold text-gray-800 text-2xl">Newest Activity</h3>
+          <SearchInput v-model="searchQuery" placeholder="Search activity..." />
+        </div>
 
         <div class="space-y-4">
+          <!-- Activity List (Using Paginated Data from Local Logic) -->
           <div
             v-for="(activity, index) in paginatedActivities"
             :key="activity.id"
